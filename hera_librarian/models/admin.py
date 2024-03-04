@@ -46,3 +46,14 @@ class AdminRequestFailedResponse(BaseModel):
     "The reason why the search failed."
     suggested_remedy: str
     "A suggested remedy for the failure."
+
+class AdminVerifyFileRequest(BaseModel):
+    # File properties
+    name: str
+    "The unique filename of this file."
+    size: int
+    "Size in bytes of the file"
+    checksum: str
+    "Checksum (MD5 hash) of the file."
+    store_name: str
+    "The name of the store that this file is on"

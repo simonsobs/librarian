@@ -123,5 +123,6 @@ def test_generate_parser():
     assert "set-file-deletion-policy" in available_subparsers
     assert "stage-files" in available_subparsers
     assert "upload" in available_subparsers
+    assert "verify-files" in available_subparsers
 
     return

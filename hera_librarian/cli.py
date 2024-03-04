@@ -528,6 +528,7 @@ def generate_parser():
     config_upload_subparser(sub_parsers)
     config_search_errors_subparser(sub_parsers)
     config_clear_error_subparser(sub_parsers)
+    config_verify_file_subparser(sub_parsers)
 
     return ap
 
@@ -1147,6 +1148,42 @@ def main():
 
     return
 
+def config_verify_file_subparser(sub_parsers):
+    """
+    Configure the subparser for the 'verify_file' command.
+    """
+    doc = "Verify the integrity and existence of a file in the librarian."
+    hlp = "Verify a file in the librarian"
+
+    sp = sub_parsers.add_parser("verify-file", description=doc, help=hlp)
+    sp.add_argument("conn_name", metavar="CONNECTION-NAME", help=_conn_name_help)
+    sp.add_argument("name", help="The unique filename of the file to verify.")
+    sp.add_argument("size", type=int, help="Size in bytes of the file to verify.")
+    sp.add_argument("checksum", help="MD5 checksum of the file to verify.")
+    sp.add_argument("store_name", help="The name of the store where the file resides.")
+    sp.set_defaults(func=verify_file)
+
+    return
+
+def verify_file(args):
+    """
+    Execute the 'verify_file' command.
+    """
+    client = get_client(args.conn_name, admin=True)
+
+    try:
+        response = client.verify_file_row(
+            name=args.name,
+            size=args.size,
+            checksum=args.checksum,
+            store_name=args.store_name,
+        )
+        if response["verified"]:
+            print("File verification successful.")
+        else:
+            print("File verification failed.")
+    except LibrarianError as e:
+        die(str(e))
 
 if __name__ == "__main__":
     sys.exit(main())

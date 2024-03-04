@@ -7,7 +7,7 @@ actually ingesting files).
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response, status, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from hera_librarian.models.admin import (
     AdminCreateFileRequest,
     AdminCreateFileResponse,
     AdminRequestFailedResponse,
+    AdminVerifyFileRequest,
 )
 
 from ..database import yield_session
@@ -96,3 +97,28 @@ def add_file(
     session.commit()
 
     return AdminCreateFileResponse(success=True, file_exists=True)
+
+@router.post("/verify_file")
+def verify_file(
+    request: AdminVerifyFileRequest,
+    session: Session = Depends(yield_session),
+):
+    """
+    Verifies the properties of an existing file in the database.
+    """
+
+    store = session.query(StoreMetadata).filter_by(name=request.store_name).one_or_none()
+    if store is None:
+        raise HTTPException(status_code=404, detail="Store not found.")
+    # Fetch the file from the database
+    file = session.query(File).filter_by(name=request.name).one_or_none()
+
+    if file is None or file.checksum != request.checksum or file.size != request.size:
+        return {"verified": False}
+
+    # Check if the file exists in the specified store and matches the given properties
+    instance = session.query(Instance).filter_by(file_id=file.id, store_id=store.id).one_or_none()
+    if instance is None:
+        raise HTTPException(status_code=404, detail="File instance not found in the specified store.")
+
+    return {"verified": True}

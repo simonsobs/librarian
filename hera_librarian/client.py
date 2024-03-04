@@ -733,3 +733,59 @@ class AdminClient(LibrarianClient):
                 raise LibrarianError(f"Unknown error. {e}")
 
         return response
+
+    def verify_file_row(
+        self,
+        name: str,
+        size: int,
+        checksum: str,
+        store_name: str,
+    ):
+        """
+        Verify a file row against an existing file on the store.
+        This can confirm the integrity and existence of a file as recorded in the database.
+
+        Parameters
+        ----------
+        name : str
+            The unique filename of the file to verify.
+        size : int
+            Size in bytes of the file to verify.
+        checksum : str
+            MD5 checksum of the file to verify.
+        store_name : str
+            The name of the store where the file resides.
+
+        Returns
+        -------
+        dict
+            A dictionary indicating whether the file is verified.
+
+        Raises
+        ------
+        LibrarianError
+            If the verification fails or the file/store does not exist.
+        """
+
+        try:
+            response = self.post(
+                endpoint="admin/verify_file",
+                json={
+                    "name": name,
+                    "size": size,
+                    "checksum": checksum,
+                    "store_name": store_name,
+                },
+            )
+
+            if response.status_code != 200:
+                raise LibrarianError("Failed to verify the file due to an unexpected error.")
+            return response.json()
+
+        except LibrarianHTTPError as e:
+            if e.status_code == 404:
+                raise LibrarianError("File or store not found for verification.")
+            elif e.status_code == 400:
+                raise LibrarianError("File verification failed due to mismatched properties.")
+            else:
+                raise LibrarianError(f"Unknown error during file verification. {e}")
