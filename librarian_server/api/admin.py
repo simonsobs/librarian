@@ -6,8 +6,9 @@ actually ingesting files).
 """
 
 from pathlib import Path
+from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Response, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,8 @@ from hera_librarian.models.admin import (
     AdminCreateFileResponse,
     AdminRequestFailedResponse,
     AdminVerifyFileRequest,
+    get_md5_from_path,
+    get_size_from_path,
 )
 
 from ..database import yield_session
@@ -98,27 +101,37 @@ def add_file(
 
     return AdminCreateFileResponse(success=True, file_exists=True)
 
+
 @router.post("/verify_file")
 def verify_file(
     request: AdminVerifyFileRequest,
     session: Session = Depends(yield_session),
-):
+) -> Dict[str, List[Dict[str, str]]]:
     """
-    Verifies the properties of an existing file in the database.
+    Verifies the properties of an existing file in the database and returns newly computed checksums and sizes for all of the instances.
+    If the requested store or file does not exist, or if no instances are found, it returns a 400 Bad Request response.
     """
 
-    store = session.query(StoreMetadata).filter_by(name=request.store_name).one_or_none()
+    store = (
+        session.query(StoreMetadata).filter_by(name=request.store_name).one_or_none()
+    )
     if store is None:
-        raise HTTPException(status_code=404, detail="Store not found.")
-    # Fetch the file from the database
+        raise HTTPException(status_code=400, detail="Store not found.")
+
     file = session.query(File).filter_by(name=request.name).one_or_none()
+    if file is None:
+        raise HTTPException(status_code=400, detail="File not found.")
 
-    if file is None or file.checksum != request.checksum or file.size != request.size:
-        return {"verified": False}
+    instances = session.query(Instance).filter_by(file_id=file.id).all()
+    if not instances:
+        raise HTTPException(status_code=400, detail="File instances not found.")
 
-    # Check if the file exists in the specified store and matches the given properties
-    instance = session.query(Instance).filter_by(file_id=file.id, store_id=store.id).one_or_none()
-    if instance is None:
-        raise HTTPException(status_code=404, detail="File instance not found in the specified store.")
-
-    return {"verified": True}
+    checksums_and_sizes = []
+    for instance in instances:
+        path = instance.path
+        checksum = get_md5_from_path(path)
+        size = get_size_from_path(path)
+        checksums_and_sizes.append(
+            {"store_id": instance.store_id, "checksum": checksum, "size": size}
+        )
+    return {"verified": True, "checksums_and_sizes": checksums_and_sizes}

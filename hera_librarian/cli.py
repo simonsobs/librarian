@@ -1148,6 +1148,7 @@ def main():
 
     return
 
+
 def config_verify_file_subparser(sub_parsers):
     """
     Configure the subparser for the 'verify_file' command.
@@ -1164,6 +1165,7 @@ def config_verify_file_subparser(sub_parsers):
     sp.set_defaults(func=verify_file)
 
     return
+
 
 def verify_file(args):
     """
@@ -1184,6 +1186,7 @@ def verify_file(args):
             print("File verification failed.")
     except LibrarianError as e:
         die(str(e))
+
 
 if __name__ == "__main__":
     sys.exit(main())

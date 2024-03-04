@@ -9,6 +9,7 @@ from hera_librarian.models.admin import (
     AdminCreateFileRequest,
     AdminCreateFileResponse,
     AdminRequestFailedResponse,
+    AdminVerifyFileRequest,
 )
 from hera_librarian.utils import get_md5_from_path, get_size_from_path
 
@@ -135,6 +136,7 @@ def test_add_file_no_store_exists(test_client):
 
     assert response.reason == "Store not_a_store does not exist."
 
+
 def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
     """
     Tests that a file's properties match the database record.
@@ -146,17 +148,20 @@ def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
     shutil.copy2(garbage_file, full_path)
 
     # Assume the file has been added to the database already; here we simulate the verification request
-    request = {
-        "name": "test_file_to_verify.txt",
-        "size": get_size_from_path(full_path),
-        "checksum": get_md5_from_path(full_path),
-        "store_name": "local_store",
-    }
+    verify_request = AdminVerifyFileRequest(
+        name="test_file_to_verify.txt",
+        size=get_size_from_path(full_path),
+        checksum=get_md5_from_path(full_path),
+        store_name="local_store",
+    )
 
-    response = test_client.post_with_auth("/api/v2/admin/verify_file", json=request)
+    response = test_client.post_with_auth(
+        "/api/v2/admin/verify_file", json=verify_request.dict()
+    )
 
     assert response.status_code == 200
     assert response.json() == {"verified": True}
+
 
 def test_verify_file_failure(test_client, test_server, test_orm):
     """

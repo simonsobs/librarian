@@ -47,6 +47,7 @@ class AdminRequestFailedResponse(BaseModel):
     suggested_remedy: str
     "A suggested remedy for the failure."
 
+
 class AdminVerifyFileRequest(BaseModel):
     # File properties
     name: str

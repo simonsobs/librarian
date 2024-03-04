@@ -779,13 +779,17 @@ class AdminClient(LibrarianClient):
             )
 
             if response.status_code != 200:
-                raise LibrarianError("Failed to verify the file due to an unexpected error.")
+                raise LibrarianError(
+                    "Failed to verify the file due to an unexpected error."
+                )
             return response.json()
 
         except LibrarianHTTPError as e:
             if e.status_code == 404:
                 raise LibrarianError("File or store not found for verification.")
             elif e.status_code == 400:
-                raise LibrarianError("File verification failed due to mismatched properties.")
+                raise LibrarianError(
+                    "File verification failed due to mismatched properties."
+                )
             else:
                 raise LibrarianError(f"Unknown error during file verification. {e}")
