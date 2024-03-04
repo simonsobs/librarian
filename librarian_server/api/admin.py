@@ -6,8 +6,9 @@ actually ingesting files).
 """
 
 from pathlib import Path
+from typing import Dict, List
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,9 @@ from hera_librarian.models.admin import (
     AdminCreateFileRequest,
     AdminCreateFileResponse,
     AdminRequestFailedResponse,
+    AdminVerifyFileRequest,
 )
+from hera_librarian.utils import get_md5_from_path, get_size_from_path
 
 from ..database import yield_session
 from ..orm import File, Instance, StoreMetadata
@@ -96,3 +99,38 @@ def add_file(
     session.commit()
 
     return AdminCreateFileResponse(success=True, file_exists=True)
+
+
+@router.post("/verify_file")
+def verify_file(
+    request: AdminVerifyFileRequest,
+    session: Session = Depends(yield_session),
+) -> Dict[str, List[Dict[str, str]]]:
+    """
+    Verifies the properties of an existing file in the database and returns newly computed checksums and sizes for all of the instances.
+    If the requested store or file does not exist, or if no instances are found, it returns a 400 Bad Request response.
+    """
+
+    store = (
+        session.query(StoreMetadata).filter_by(name=request.store_name).one_or_none()
+    )
+    if store is None:
+        raise HTTPException(status_code=400, detail="Store not found.")
+
+    file = session.query(File).filter_by(name=request.name).one_or_none()
+    if file is None:
+        raise HTTPException(status_code=400, detail="File not found.")
+
+    instances = session.query(Instance).filter_by(file_id=file.id).all()
+    if not instances:
+        raise HTTPException(status_code=400, detail="File instances not found.")
+
+    checksums_and_sizes = []
+    for instance in instances:
+        path = instance.path
+        checksum = get_md5_from_path(path)
+        size = get_size_from_path(path)
+        checksums_and_sizes.append(
+            {"store_id": instance.store_id, "checksum": checksum, "size": size}
+        )
+    return {"verified": True, "checksums_and_sizes": checksums_and_sizes}
