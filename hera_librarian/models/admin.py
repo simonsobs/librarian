@@ -3,6 +3,7 @@ Pydantic modems for the admin endpoints
 """
 
 from datetime import datetime
+from typing import Dict, List
 
 from pydantic import BaseModel
 
@@ -58,3 +59,8 @@ class AdminVerifyFileRequest(BaseModel):
     "Checksum (MD5 hash) of the file."
     store_name: str
     "The name of the store that this file is on"
+
+
+class FileVerificationResponse(BaseModel):
+    verified: bool
+    checksums_and_sizes: List[Dict[str, str]]

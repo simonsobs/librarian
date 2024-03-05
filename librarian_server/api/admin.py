@@ -18,6 +18,7 @@ from hera_librarian.models.admin import (
     AdminCreateFileResponse,
     AdminRequestFailedResponse,
     AdminVerifyFileRequest,
+    FileVerificationResponse,
 )
 from hera_librarian.utils import get_md5_from_path, get_size_from_path
 
@@ -101,7 +102,7 @@ def add_file(
     return AdminCreateFileResponse(success=True, file_exists=True)
 
 
-@router.post("/verify_file")
+@router.post("/verify_file", response_model=FileVerificationResponse)
 def verify_file(
     request: AdminVerifyFileRequest,
     session: Session = Depends(yield_session),
@@ -121,7 +122,12 @@ def verify_file(
     if file is None:
         raise HTTPException(status_code=400, detail="File not found.")
 
-    instances = session.query(Instance).filter_by(file_id=file.id).all()
+    instances = (
+        session.query(Instance)
+        .join(File, File.name == Instance.file_name)
+        .filter(File.name == file.name, Instance.store_id == store.id)
+        .all()
+    )
     if not instances:
         raise HTTPException(status_code=400, detail="File instances not found.")
 
@@ -131,6 +137,10 @@ def verify_file(
         checksum = get_md5_from_path(path)
         size = get_size_from_path(path)
         checksums_and_sizes.append(
-            {"store_id": instance.store_id, "checksum": checksum, "size": size}
+            {
+                "store_id": str(instance.store_id),
+                "checksum": checksum,
+                "size": str(size),
+            }
         )
     return {"verified": True, "checksums_and_sizes": checksums_and_sizes}
