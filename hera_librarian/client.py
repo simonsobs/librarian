@@ -737,9 +737,6 @@ class AdminClient(LibrarianClient):
     def verify_file_row(
         self,
         name: str,
-        size: int,
-        checksum: str,
-        store_name: str,
     ):
         """
         Verify a file row against an existing file on the store.
@@ -772,9 +769,6 @@ class AdminClient(LibrarianClient):
                 endpoint="admin/verify_file",
                 json={
                     "name": name,
-                    "size": size,
-                    "checksum": checksum,
-                    "store_name": store_name,
                 },
             )
 

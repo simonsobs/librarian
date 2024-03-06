@@ -184,9 +184,6 @@ def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
     # Assume the file has been added to the database already; here we simulate the verification request
     verify_request = AdminVerifyFileRequest(
         name="test_file_to_verify.txt",
-        size=get_size_from_path(full_path),
-        checksum=get_md5_from_path(full_path),
-        store_name="local_store",
     )
 
     response = test_client.post_with_auth(
@@ -218,9 +215,6 @@ def test_verify_file_failure(test_client, test_server, test_orm):
     # Assume a file "mismatched_file.txt" exists in the database but with different properties
     request = {
         "name": "mismatched_file.txt",
-        "size": 123,  # Intentionally incorrect size
-        "checksum": "wrongchecksum",  # Intentionally incorrect checksum
-        "store_name": "local_store",
     }
 
     response = test_client.post_with_auth("/api/v2/admin/verify_file", json=request)

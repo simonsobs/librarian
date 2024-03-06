@@ -106,17 +106,11 @@ def add_file(
 def verify_file(
     request: AdminVerifyFileRequest,
     session: Session = Depends(yield_session),
-) -> Dict[str, List[Dict[str, str]]]:
+) -> FileVerificationResponse:
     """
     Verifies the properties of an existing file in the database and returns newly computed checksums and sizes for all of the instances.
     If the requested store or file does not exist, or if no instances are found, it returns a 400 Bad Request response.
     """
-
-    store = (
-        session.query(StoreMetadata).filter_by(name=request.store_name).one_or_none()
-    )
-    if store is None:
-        raise HTTPException(status_code=400, detail="Store not found.")
 
     file = session.query(File).filter_by(name=request.name).one_or_none()
     if file is None:
@@ -125,7 +119,7 @@ def verify_file(
     instances = (
         session.query(Instance)
         .join(File, File.name == Instance.file_name)
-        .filter(File.name == file.name, Instance.store_id == store.id)
+        .filter(File.name == file.name)
         .all()
     )
     if not instances:
@@ -143,4 +137,6 @@ def verify_file(
                 "size": str(size),
             }
         )
-    return {"verified": True, "checksums_and_sizes": checksums_and_sizes}
+    return FileVerificationResponse(
+        verified=True, checksums_and_sizes=checksums_and_sizes
+    )

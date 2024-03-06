@@ -53,14 +53,17 @@ class AdminVerifyFileRequest(BaseModel):
     # File properties
     name: str
     "The unique filename of this file."
-    size: int
-    "Size in bytes of the file"
+
+
+class FileVerificationItem(BaseModel):
+    store_id: str
+    "The ID of the store."
     checksum: str
     "Checksum (MD5 hash) of the file."
-    store_name: str
-    "The name of the store that this file is on"
+    size: str
+    "Size of the file in bytes."
 
 
 class FileVerificationResponse(BaseModel):
     verified: bool
-    checksums_and_sizes: List[Dict[str, str]]
+    checksums_and_sizes: List[FileVerificationItem]
