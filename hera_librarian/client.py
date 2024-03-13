@@ -746,12 +746,6 @@ class AdminClient(LibrarianClient):
         ----------
         name : str
             The unique filename of the file to verify.
-        size : int
-            Size in bytes of the file to verify.
-        checksum : str
-            MD5 checksum of the file to verify.
-        store_name : str
-            The name of the store where the file resides.
 
         Returns
         -------

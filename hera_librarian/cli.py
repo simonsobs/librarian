@@ -1176,9 +1176,6 @@ def verify_file(args):
     try:
         response = client.verify_file_row(
             name=args.name,
-            size=args.size,
-            checksum=args.checksum,
-            store_name=args.store_name,
         )
         if response["verified"]:
             print("File verification successful.")

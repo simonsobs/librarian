@@ -5,10 +5,12 @@
 """Test code in hera_librarian/cli.py
 
 """
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from hera_librarian import cli
+from hera_librarian.exceptions import LibrarianError
 
 
 def test_die(capsys):
@@ -72,6 +74,67 @@ bar          | 12
         cli.print_table(dict_list, col_list, col_names[:1])
 
     return
+
+
+def test_verify_file_success(capsys):
+    # Mock the client and its verify_file_row method
+    client_mock = MagicMock()
+    client_mock.verify_file_row.return_value = {"verified": True}
+
+    # Mock the get_client function to return the mock client
+    with patch("hera_librarian.cli.get_client", return_value=client_mock):
+        # Create a mock args object
+        args = MagicMock()
+        args.conn_name = "test_conn"
+        args.name = "test_name"
+
+        # Call the verify_file function
+        cli.verify_file(args)
+
+        # Assert that the verify_file_row method was called with the correct arguments
+        client_mock.verify_file_row.assert_called_once_with(name=args.name)
+
+        # Check the printed output
+        captured = capsys.readouterr()
+        assert "File verification successful." in captured.out
+
+
+def test_verify_file_failure(capsys):
+    client_mock = MagicMock()
+    client_mock.verify_file_row.return_value = {"verified": False}
+
+    # Mock the get_client function to return the mock client
+    with patch("hera_librarian.cli.get_client", return_value=client_mock):
+        # Create a mock args object
+        args = MagicMock()
+        args.conn_name = "test_conn"
+        args.name = "test_name"
+
+        # Call the verify_file function
+        cli.verify_file(args)
+
+        # Check the printed output
+        captured = capsys.readouterr()
+        assert "File verification failed." in captured.out
+
+
+def test_verify_file_error():
+    # Mock the client and its verify_file_row method to raise a LibrarianError
+    client_mock = MagicMock()
+    client_mock.verify_file_row.side_effect = LibrarianError("Test error")
+
+    # Mock the get_client function to return the mock client
+    with patch("hera_librarian.cli.get_client", return_value=client_mock):
+        # Create a mock args object
+        args = MagicMock()
+        args.conn_name = "test_conn"
+        args.name = "test_name"
+
+        # Mock the die function to raise a SystemExit instead of exiting the program
+        with patch("hera_librarian.cli.die", side_effect=SystemExit):
+            # Call the verify_file function and assert that it raises a SystemExit
+            with pytest.raises(SystemExit):
+                cli.verify_file(args)
 
 
 def test_sizeof_fmt():

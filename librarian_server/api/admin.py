@@ -6,7 +6,7 @@ actually ingesting files).
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Union
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
@@ -102,28 +102,35 @@ def add_file(
     return AdminCreateFileResponse(success=True, file_exists=True)
 
 
-@router.post("/verify_file", response_model=FileVerificationResponse)
+@router.post(
+    "/verify_file",
+    response_model=Union[FileVerificationResponse, AdminRequestFailedResponse],
+)
 def verify_file(
     request: AdminVerifyFileRequest,
+    response: Response,
     session: Session = Depends(yield_session),
-) -> FileVerificationResponse:
+) -> Union[FileVerificationResponse, AdminRequestFailedResponse]:
     """
     Verifies the properties of an existing file in the database and returns newly computed checksums and sizes for all of the instances.
     If the requested store or file does not exist, or if no instances are found, it returns a 400 Bad Request response.
     """
 
-    file = session.query(File).filter_by(name=request.name).one_or_none()
+    file = session.get(File, request.name)
     if file is None:
-        raise HTTPException(status_code=400, detail="File not found.")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return AdminRequestFailedResponse(
+            reason="File not found.",
+            suggested_remedy="Ensure the file exists in the database.",
+        )
 
-    instances = (
-        session.query(Instance)
-        .join(File, File.name == Instance.file_name)
-        .filter(File.name == file.name)
-        .all()
-    )
+    instances = file.instances
     if not instances:
-        raise HTTPException(status_code=400, detail="File instances not found.")
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return AdminRequestFailedResponse(
+            reason="File instances not found.",
+            suggested_remedy="Ensure the file has instances in the database.",
+        )
 
     checksums_and_sizes = []
     for instance in instances:

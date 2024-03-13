@@ -138,25 +138,12 @@ def test_add_file_no_store_exists(test_client):
     assert response.reason == "Store not_a_store does not exist."
 
 
-def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
-    """
-    Tests that a file's properties match the database record.
-    """
-    setup = test_server[2]
-    store = setup.store_directory
-    full_path = store / "test_file_to_verify.txt"
-    # Create the file in the store
-    shutil.copy2(garbage_file, full_path)
-
-    # Get the session and ORM models from the test_server fixture
-    session = test_server[1]()
-
+def setup_test_file(session, test_orm, full_path):
     # Create or find a store in the database
     db_store = (
         session.query(test_orm.StoreMetadata).filter_by(name="local_store").first()
     )
     if not db_store:
-        # Create a new store if not found (adjust attributes as necessary)
         db_store = test_orm.StoreMetadata(
             name="local_store", description="A local store for testing"
         )
@@ -169,36 +156,40 @@ def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
         filename="test_file_to_verify.txt",
         size=len(file_data),
         checksum=hashlib.md5(file_data).hexdigest(),
-        uploader="test_uploader",  # Adjust as necessary
-        source="test_source",  # Adjust as necessary
+        uploader="test_uploader",
+        source="test_source",
     )
     instance = test_orm.Instance.new_instance(
         path=str(full_path),
         file=db_file,
         store=db_store,
-        deletion_policy="ALLOWED",  # Adjust as necessary
+        deletion_policy="ALLOWED",
     )
     session.add_all([db_file, instance])
     session.commit()
 
-    # Assume the file has been added to the database already; here we simulate the verification request
-    verify_request = AdminVerifyFileRequest(
-        name="test_file_to_verify.txt",
-    )
+    return db_file, instance
 
+
+def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
+    """
+    Tests that a file's properties match the database record.
+    """
+    setup = test_server[2]
+    store = setup.store_directory
+    full_path = store / "test_file_to_verify.txt"
+    shutil.copy2(garbage_file, full_path)
+
+    session = test_server[1]()
+    db_file, instance = setup_test_file(session, test_orm, full_path)
+
+    verify_request = AdminVerifyFileRequest(name="test_file_to_verify.txt")
     response = test_client.post_with_auth(
         "/api/v2/admin/verify_file", json=verify_request.dict()
     )
 
     assert response.status_code == 200
 
-    # Clean up: Delete the added records and file
-    session.delete(instance)
-    session.delete(db_file)
-    session.commit()
-    full_path.unlink()  # Remove the file from the filesystem
-
-    session.close()
     response_data = response.json()
     assert response_data["verified"] == True
     assert isinstance(response_data["checksums_and_sizes"], list)
@@ -206,6 +197,13 @@ def test_verify_file_success(test_client, test_server, garbage_file, test_orm):
     assert "checksum" in response_data["checksums_and_sizes"][0]
     assert "size" in response_data["checksums_and_sizes"][0]
     assert "store_id" in response_data["checksums_and_sizes"][0]
+
+    # Clean up: Delete the added records and file
+    session.delete(instance)
+    session.delete(db_file)
+    session.commit()
+    full_path.unlink()
+    session.close()
 
 
 def test_verify_file_failure(test_client, test_server, test_orm):
@@ -220,4 +218,7 @@ def test_verify_file_failure(test_client, test_server, test_orm):
     response = test_client.post_with_auth("/api/v2/admin/verify_file", json=request)
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "File not found."}
+    assert response.json() == {
+        "reason": "File not found.",
+        "suggested_remedy": "Ensure the file exists in the database.",
+    }
