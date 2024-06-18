@@ -11,7 +11,11 @@ from sqlalchemy import select
 
 from hera_librarian.client import LibrarianClient
 from hera_librarian.errors import ErrorCategory, ErrorSeverity
-from hera_librarian.exceptions import LibrarianError
+from hera_librarian.exceptions import (
+    LibrarianError,
+    LibrarianHTTPError,
+    LibrarianTimeoutError,
+)
 from hera_librarian.models.clone import (
     CloneBatchInitiationRequest,
     CloneBatchInitiationRequestFileItem,
@@ -31,6 +35,7 @@ from librarian_server.orm import (
 )
 from librarian_server.settings import server_settings
 
+from .hypervisor import handle_stale_outgoing_transfer
 from .task import Task
 
 if TYPE_CHECKING:
@@ -111,6 +116,7 @@ def use_batch_to_call_librarian(
     outgoing_transfers: list[OutgoingTransfer],
     outgoing_information: list[dict[str, Any]],
     client: LibrarianClient,
+    librarian: Librarian | None,
     session: Session,
 ) -> bool | CloneBatchInitiationResponse:
     """
@@ -126,6 +132,9 @@ def use_batch_to_call_librarian(
         List of information about the outgoing transfers. (from process_batch)
     client : LibrarianClient
         Client connection to the remote librarian.
+    librarian : Librarian | None
+        Librarian that we are sending to. If this is None, you won't be able
+        to handle existing files on the downstream.
     session : Session
         SQLAlchemy session to use.
 
@@ -154,19 +163,63 @@ def use_batch_to_call_librarian(
             request=batch,
             response=CloneBatchInitiationResponse,
         )
-    except Exception as e:
+    except LibrarianHTTPError as e:
+        remedy_success = False
+
+        if e.status_code == 409:
+            # The librarian already has the file... Potentially.
+            potential_id = e.full_response.get("source_transfer_id", None)
+
+            if potential_id is None:
+                log_to_database(
+                    severity=ErrorSeverity.ERROR,
+                    category=ErrorCategory.PROGRAMMING,
+                    message=(
+                        "Librarian told us that they have a file, but did not provide "
+                        "the source transfer ID."
+                    ),
+                    session=session,
+                )
+            else:
+                remedy_success = handle_existing_file(
+                    session=session,
+                    source_transfer_id=potential_id,
+                    librarian=librarian,
+                )
+
         # Oh no, we can't call up the librarian!
+        if not remedy_success:
+            log_to_database(
+                severity=ErrorSeverity.ERROR,
+                category=ErrorCategory.LIBRARIAN_NETWORK_AVAILABILITY,
+                message=(
+                    f"Unable to communicate with remote librarian for batch "
+                    f"to stage clone with exception {e}."
+                ),
+                session=session,
+            )
+
+        # What a waste... Even if we did remedy the problem with the
+        # already-existent file, we need to fail this over.
+        for transfer in outgoing_transfers:
+            transfer.fail_transfer(session=session, commit=False)
+
+        session.commit()
+
+        return False
+    except LibrarianTimeoutError as e:
+        # Can't connect to the librarian. Log and move on...
+
         log_to_database(
             severity=ErrorSeverity.ERROR,
             category=ErrorCategory.LIBRARIAN_NETWORK_AVAILABILITY,
             message=(
-                f"Unable to communicate with remote librarian for batch "
+                f"Timeout when trying to communicate with remote librarian for batch "
                 f"to stage clone with exception {e}."
             ),
             session=session,
         )
 
-        # What a waste...
         for transfer in outgoing_transfers:
             transfer.fail_transfer(session=session, commit=False)
 
@@ -331,6 +384,57 @@ def call_destination_and_state_ongoing(send: SendQueue, session: Session):
         pass
 
 
+def handle_existing_file(
+    session: Session,
+    source_transfer_id: int,
+    librarian: Librarian,
+) -> bool:
+    """
+    Handles the case where the clone tells us that they already have
+    the file.
+
+    Does this buy calling up the downsteram librarian and asking for
+    the checksum. If it has the file, and the checksum matches, we
+    register a remote instance.
+
+    NOTE: This may leave dangling STAGED files, but those can be cleaned
+    up later by the hypervisor task
+    """
+
+    log_to_database(
+        severity=ErrorSeverity.INFO,
+        category=ErrorCategory.TRANSFER,
+        message=(
+            f"Librarian {librarian.name} told us that they already have the file "
+            f"from transfer {source_transfer_id}, attempting to handle and create "
+            "remote instance."
+        ),
+        session=session,
+    )
+
+    transfer: OutgoingTransfer = session.get(OutgoingTransfer, source_transfer_id)
+
+    if transfer is None:
+        log_to_database(
+            severity=ErrorSeverity.ERROR,
+            category=ErrorCategory.PROGRAMMING,
+            message=(
+                f"Transfer {source_transfer_id} does not exist, but we were told "
+                "by the downstream librarian that it does. There must be another "
+                "librarian that sent them the file, and the DAG nature of the "
+                "librarian is being violated."
+            ),
+            session=session,
+        )
+
+        return False
+    else:
+        return handle_stale_outgoing_transfer(
+            session=session,
+            transfer=transfer,
+        )
+
+
 class SendClone(Task):
     """
     Launches clones of files to a remote librarian.
@@ -413,9 +517,9 @@ class SendClone(Task):
             )
         )
 
-        file_stmt = file_stmt.where(
-            File.name.not_in(remote_instances_stmt).not_in(outgoing_transfer_stmt)
-        )
+        file_stmt = file_stmt.where(File.name.not_in(remote_instances_stmt))
+
+        file_stmt = file_stmt.where(File.name.not_in(outgoing_transfer_stmt))
 
         files_without_remote_instances: list[File] = (
             session.execute(file_stmt).scalars().all()
@@ -483,6 +587,7 @@ class SendClone(Task):
                 outgoing_transfers=outgoing_transfers,
                 outgoing_information=outgoing_information,
                 client=client,
+                librarian=librarian,
                 session=session,
             )
 

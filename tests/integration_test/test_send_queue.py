@@ -288,7 +288,7 @@ def test_send_from_existing_file_row(
         )
 
         for transfer in incoming_transfers:
-            assert Path(transfer.staging_path).exists()
+            assert transfer.status == TransferStatus.STAGED
 
     # Force downstream to execute their background tasks.
     from librarian_background.recieve_clone import RecieveClone
@@ -330,6 +330,42 @@ def test_send_from_existing_file_row(
 
     if missing_files != []:
         raise ValueError(f"Missing files: " + str(missing_files))
+    else:
+        print("All files copied successfully.")
+
+    # Callback can't work, so we need to modify our outgoing transfers
+    # to be compelted.
+    with source_session_maker() as session:
+        queue_item = (
+            session.query(test_orm.SendQueue)
+            .filter_by(destination="live_server", completed=True)
+            .first()
+        )
+
+        assert queue_item.consumed
+        assert queue_item.completed
+
+        for transfer in queue_item.transfers:
+            transfer.status = TransferStatus.COMPLETED
+
+        session.commit()
+
+    # Ok, now try to execute the send loop again. We should 409 and
+    # register a new remote instance internally.
+    with source_session_maker() as session:
+        generate_task.core(session=session)
+
+    # Check we correctly registered remote instances on the source.
+    # There will be only one...
+    found_remote_instanace = False
+    with source_session_maker() as session:
+        for file_name in copied_files:
+            file = session.get(test_orm.File, file_name)
+            if len(file.remote_instances) > 0:
+                found_remote_instanace = True
+                break
+
+    assert found_remote_instanace
 
     # Remove the librarians we added.
     assert mocked_admin_client.remove_librarian(name="live_server")
@@ -357,7 +393,10 @@ def test_use_batch_to_call_librarian(
     from hera_librarian import LibrarianClient
 
     fake_client = LibrarianClient(
-        host="http://nowhere.com", port=12345, user="404", password="notfound"
+        host="http://localhost",
+        port=test_server_with_many_files_and_errors[2].id,
+        user="404",
+        password="notfound",
     )
 
     from librarian_background.send_clone import use_batch_to_call_librarian
@@ -394,6 +433,7 @@ def test_use_batch_to_call_librarian(
                 outgoing_transfers=transfers,
                 outgoing_information=outgoing_information,
                 client=fake_client,
+                librarian=None,
                 session=session,
             )
             is False
@@ -418,7 +458,10 @@ def test_create_send_queue_item_no_transfer_providers(
     from hera_librarian import LibrarianClient
 
     fake_client = LibrarianClient(
-        host="http://nowhere.com", port=12345, user="404", password="notfound"
+        host="http://localhost",
+        port=test_server_with_many_files_and_errors[2].id,
+        user="404",
+        password="notfound",
     )
 
     from librarian_background.send_clone import use_batch_to_call_librarian
@@ -511,7 +554,10 @@ def test_create_send_queue_item_no_availability_of_transfer_manager(
     from hera_librarian import LibrarianClient
 
     fake_client = LibrarianClient(
-        host="http://nowhere.com", port=12345, user="404", password="notfound"
+        host="http://localhost",
+        port=test_server_with_many_files_and_errors[2].id,
+        user="404",
+        password="notfound",
     )
 
     from librarian_background.send_clone import use_batch_to_call_librarian
