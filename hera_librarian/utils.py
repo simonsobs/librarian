@@ -18,8 +18,6 @@ import xxhash
 # --- Begin MIT Licensed checksumdir ---
 
 
-__version__ = pkg_resources.require("checksumdir")[0].version
-
 HASH_FUNCS = {
     "md5": hashlib.md5,
     "xxh3": xxhash.xxh3_128,
