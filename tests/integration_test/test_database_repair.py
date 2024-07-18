@@ -269,8 +269,6 @@ def test_recover_from_disaster(
         for property, value in stored_properties_file.items():
             assert getattr(repaired_file, property) == value
 
-    raise BaseException
-
     # Remove the librarians we added.
     assert mocked_admin_client.remove_librarian(name="live_server")
 
