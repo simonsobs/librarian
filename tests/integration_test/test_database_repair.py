@@ -272,11 +272,30 @@ def test_recover_from_disaster(
     # Remove the librarians we added.
     assert mocked_admin_client.remove_librarian(name="live_server")
 
-    # Remove all the files we just copied over!
+    # Remove all the files we just copied over! And the incoming and
+    # outgoing transfers
     with librarian_database_session_maker() as session:
         for file_name in copied_files:
             file = session.get(test_orm.File, file_name)
 
             file.delete(session=session, commit=False, force=True)
+
+            transfer = (
+                session.query(test_orm.IncomingTransfer)
+                .filter_by(upload_name=file_name)
+                .first()
+            )
+            session.delete(transfer)
+
+        session.commit()
+
+    with source_session_maker() as session:
+        for file_name in sent_filenames:
+            transfer = (
+                session.query(test_orm.OutgoingTransfer)
+                .filter_by(file_name=file_name)
+                .first()
+            )
+            session.delete(transfer)
 
         session.commit()

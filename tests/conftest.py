@@ -433,7 +433,6 @@ def test_server_with_many_files_and_errors(test_server, test_orm):
     yield test_server
 
     # Now delete those items from the database.
-
     session = test_server[1]()
 
     for file_name in file_names:
