@@ -74,23 +74,28 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
 
         if settings.globus_client_native_app:
             try:
-                client = globus_sdk.NativeAppAuthClient(settings.globus_client_id)
+                client = globus_sdk.NativeAppAuthClient(
+                    client_id=settings.globus_client_id
+                )
                 authorizer = globus_sdk.RefreshTokenAuthorizer(
-                    settings.globus_client_secret, client
+                    refresh_token=settings.globus_client_secret, auth_client=client
                 )
             except globus_sdk.AuthAPIError as e:
                 return None
         else:
             try:
                 client = globus_sdk.ConfidentialAppAuthClient(
-                    settings.globus_client_id, settings.globus_client_secret
+                    client_id=settings.globus_client_id,
+                    client_secret=settings.globus_client_secret,
                 )
                 tokens = client.oauth2_client_credentials_tokens()
                 transfer_tokens_info = tokens.by_resource_server[
                     "transfer.api.globus.org"
                 ]
                 transfer_token = transfer_tokens_info["access_token"]
-                authorizer = globus_sdk.AccessTokenAuthorizer(transfer_token)
+                authorizer = globus_sdk.AccessTokenAuthorizer(
+                    access_token=transfer_token
+                )
             except globus_sdk.AuthAPIError as e:
                 return None
 
