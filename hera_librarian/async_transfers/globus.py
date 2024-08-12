@@ -109,14 +109,25 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         does not verify that we can copy files between specific endpoints.
         However, this is an important starting point and can fail for reasons of
         network connectivity, Globus as a service being down, etc.
+
+        Parameters
+        ----------
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        bool
+            Whether we can authenticate with Globus (True) or not (False).
         """
         authorizer = self.authorize(settings=settings)
         return authorizer is not None
 
     def _get_transfer_data(self, label: str, settings: "ServerSettings"):
         """
-        This is a helper function to create a TransferData object, which is needed
-        both for single-book transfers and batch transfers.
+        This is a helper function to create a TransferData object, which is
+        needed both for single-book transfers and batch transfers.
         """
         # create a TransferData object that contains options for the transfer
         transfer_data = globus_sdk.TransferData(
@@ -153,6 +164,14 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         remote_path : Path
             The remote path for the transfer relative to the root Globus
             directory, which is generally not the same as /.
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        bool
+            Whether we could successfully initiate a transfer (True) or not (False).
         """
         self.transfer_attempted = True
 
@@ -191,6 +210,30 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         paths: list[tuple[Path]],
         settings: "ServerSettings",
     ) -> bool:
+        """
+        Attempt to transfer a series of books using Globus.
+
+        This method will attempt to create a Globus transfer. If successful, we
+        will have set the task ID of the transfer on the object, which can be
+        used to query Globus as to its status. If unsuccessful, we will have
+        gotten nothing but sadness.
+
+        Parameters
+        ----------
+        paths : list of tuples of Paths
+            A series of length-2 tuples containing pairs of local and remote
+            Paths to include as part of the transfer.
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        bool
+            Whether we could successfully initiate a transfer (True) or not
+            (False).
+
+        """
         self.transfer_attempted = True
 
         # We have to do a lot of the same legwork as above for a single
@@ -233,6 +276,21 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
     def transfer_status(self, settings: "ServerSettings") -> TransferStatus:
         """
         Query Globus to see if our transfer has finished yet.
+
+        Parameters
+        ----------
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        TransferStatus
+            The status of the relevant transfer. Should be one of: INITIATED (if
+            the transfer has not yet been started, or is in-flight), SUCCEEDED
+            (if the transfer was successful), or FAILED (if the transfer was
+            unsuccessful, we could not contact Globus, or if the transfer was
+            attempted but could not be completed).
         """
         authorizer = self.authorize(settings=settings)
         if authorizer is None:
