@@ -81,6 +81,7 @@ testpaths = [
     "tests/background_unit_test",
     "tests/client_unit_test",
     "tests/integration_test",
+    "tests/script_tests"
 ]
 
 [tool.coverage.run]

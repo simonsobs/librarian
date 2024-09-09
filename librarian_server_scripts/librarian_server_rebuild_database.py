@@ -179,4 +179,4 @@ def main():
             )
             exit(0)
 
-    run_migration(store_name=args.store_name, directory=args.directory)
+    run_migration(store_name=args.store, directory=args.directories)
