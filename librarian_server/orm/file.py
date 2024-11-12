@@ -161,13 +161,11 @@ class CorruptFile(db.Base):
         db.String(256), db.ForeignKey("files.name"), nullable=False
     )
     "The name of the file."
-    file: File = db.relationship(
-        "File", primaryjoin="CorruptFile.file_name == File.name"
-    )
+    file = db.relationship("File", primaryjoin="CorruptFile.file_name == File.name")
     "The file object associated with this."
     instance_id: int = db.Column(db.Integer, db.ForeignKey("instances.id"))
     "The instance ID of the corrupt file."
-    instance: Instance = db.relationship(
+    instance = db.relationship(
         "Instance", primaryjoin="CorruptFile.instance_id == Instance.id"
     )
     "The instance object associated with this."
