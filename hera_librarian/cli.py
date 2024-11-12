@@ -641,6 +641,7 @@ def get_librarian_list(args):
         print(
             f"\033[1m{librarian.name}\033[0m ({librarian.url}:{librarian.port}) "
             f"- {'Available' if librarian.available else 'Disabled' if librarian.available is not None else 'Unknown'}"
+            f"- {'Enabled' if librarian.enabled else 'Disabled'}"
         )
 
     return 0
@@ -765,6 +766,36 @@ def validate_file(args):
         )
     except LibrarianError as e:
         die(f"Error validating file: {e}")
+    except LibrarianHTTPError as e:
+        die(f"Unexpected error communicating with the librarian server: {e.reason}")
+
+    return 0
+
+
+def set_librarian_transfer(args):
+    """
+    Set the transfer status of a librarian.
+    """
+
+    client = get_client(args.conn_name, admin=True)
+
+    if args.enabled and args.disabled:
+        die("Cannot set both enabled and disabled.")
+
+    if args.enabled:
+        transfer_status = True
+    elif args.disabled:
+        transfer_status = False
+    else:
+        die("You must choose to enable or disable the transfers.")
+
+    try:
+        client.set_librarian_transfer(
+            librarian_name=args.librarian_name,
+            transfer_status=transfer_status,
+        )
+    except LibrarianError as e:
+        die(f"Error setting librarian transfer status: {e}")
     except LibrarianHTTPError as e:
         die(f"Unexpected error communicating with the librarian server: {e.reason}")
 
@@ -1703,6 +1734,31 @@ def config_validate_file_subparser(sub_parsers):
     sp.set_defaults(func=validate_file)
 
     return
+
+
+def config_set_librarian_transfer_subparser(sub_parsers):
+    doc = """Set the transfer state of a librarian.
+    
+    """
+    hlp = "Set the transfer state of a librarian"
+
+    # add sub parser
+    sp = sub_parsers.add_parser("set-librarian-transfer", description=doc, help=hlp)
+    sp.add_argument("conn_name", metavar="CONNECTION-NAME", help=_conn_name_help)
+    sp.add_argument(
+        "--name", help="The name of the librarian to set the transfer state of."
+    )
+    sp.add_argument(
+        "--enabled",
+        action="store_true",
+        help="Set the librarian to enabled for transfers.",
+    )
+    sp.add_argument(
+        "--disabled",
+        action="store_true",
+        help="Set the librarian to disabled for transfers.",
+    )
+    sp.set_defaults(func=set_librarian_transfer)
 
 
 def main():

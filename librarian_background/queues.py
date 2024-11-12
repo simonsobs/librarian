@@ -19,6 +19,7 @@ from hera_librarian.exceptions import LibrarianError
 from hera_librarian.transfer import TransferStatus
 from librarian_server.database import get_session
 from librarian_server.logger import ErrorCategory, ErrorSeverity, log_to_database
+from librarian_server.orm.librarian import Librarian
 from librarian_server.orm.sendqueue import SendQueue
 from librarian_server.settings import server_settings
 
@@ -134,6 +135,18 @@ def check_on_consumed(
                 # We are out of time.
                 return False
 
+            # Check if the librarian is enabled.
+            librarian = (
+                session.query(Librarian)
+                .filter_by(name=queue_item.destination)
+                .one_or_none()
+            )
+
+            if librarian is None or not librarian.transfers_enabled:
+                # We can't do anything with this librarian, but there may be other
+                # librarians that are enabled.
+                continue
+
             current_status = queue_item.async_transfer_manager.transfer_status(
                 settings=server_settings
             )
@@ -218,6 +231,18 @@ def consume_queue_item(session_maker: Callable[[], "Session"]) -> bool:
         if queue_item is None:
             # Nothing to do!
             return False
+
+        # Check if the librarian is enabled.
+        librarian = (
+            session.query(Librarian)
+            .filter_by(name=queue_item.destination)
+            .one_or_none()
+        )
+
+        if librarian is None or not librarian.transfers_enabled:
+            # We can't do anything with this librarian, but there may be other
+            # librarians that are enabled.
+            return True
 
         # Now, check we don't have too much going on.
         stmt = (
