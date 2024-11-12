@@ -852,6 +852,7 @@ def generate_parser():
     config_get_librarian_list_subparser(sub_parsers)
     config_add_librarian_subparser(sub_parsers)
     config_remove_librarian_subparser(sub_parsers)
+    config_set_librarian_transfer_subparser(sub_parsers)
     config_create_user_subparser(sub_parsers)
     config_delete_user_subparser(sub_parsers)
     config_validate_file_subparser(sub_parsers)
