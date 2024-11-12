@@ -609,7 +609,7 @@ def change_librarian_transfer_status(
         response.status_code = status.HTTP_400_BAD_REQUEST
         return AdminRequestFailedResponse(
             reason=f"Librarian {request.librarian_name} does not exist",
-            suggested_remedy="Check for typos in your request",
+            suggested_remedy="Please verify that the requested librarian exists",
         )
 
     librarian.transfers_enabled = request.transfers_enabled
