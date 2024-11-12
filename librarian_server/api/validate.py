@@ -25,7 +25,8 @@ from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
 
 from ..database import yield_session
 from ..logger import log, log_to_database
-from ..orm.file import File
+from ..orm.file import CorruptFile, File
+from ..orm.instance import Instance
 from ..orm.librarian import Librarian
 from ..settings import server_settings
 from .auth import ReadonlyUserDependency
@@ -193,12 +194,33 @@ async def validate_file(
 
     for info in checksum_info:
         if not info.computed_same_checksum and info.librarian == server_settings.name:
+
+            # Add the corrupt file to the database, though check if we already have
+            # it first.
+            query = select(CorruptFile).filter(CorruptFile.file_name == file.name)
+
+            corrupt_file = session.execute(query).one_or_none()
+
+            if corrupt_file is not None:
+                corrupt_file.count += 1
+                session.commit()
+                continue
+            else:
+                corrupt_file = CorruptFile.new_corrupt_file(
+                    instance=session.get(Instance, info.instance_id),
+                    size=info.current_size,
+                    checksum=info.current_checksum,
+                )
+                session.add(corrupt_file)
+                session.commit()
+
             log_to_database(
                 severity=ErrorSeverity.CRITICAL,
                 category=ErrorCategory.DATA_INTEGRITY,
                 message=(
                     "File validation failed The checksums do not match for "
-                    f"file {file.name} in store {instance.store.id}."
+                    f"file {file.name} in store {instance.store.id}; see "
+                    f"CorruptFile: {corrupt_file.id}"
                 ),
                 session=session,
             )

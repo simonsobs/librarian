@@ -12,6 +12,7 @@ from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
 from librarian_server.database import get_session
 from librarian_server.logger import ErrorCategory, ErrorSeverity, log_to_database
 from librarian_server.orm import Instance, StoreMetadata
+from librarian_server.orm.file import CorruptFile, File
 
 from .task import Task
 
@@ -99,10 +100,34 @@ class CheckIntegrity(Task):
             else:
                 # File is not fine. Log it.
                 all_files_fine = False
+
+                # Do we already have a corrupt file?
+                corrupt_file = (
+                    session.query(CorruptFile)
+                    .filter_by(instance_id=file.id)
+                    .one_or_none()
+                )
+
+                if corrupt_file is None:
+                    corrupt_file = CorruptFile.new_corrupt_file(
+                        instance=file,
+                        size=path_info.size,
+                        checksum=path_info.checksum,
+                    )
+                    session.add(corrupt_file)
+                    session.commit()
+                else:
+                    corrupt_file.count += 1
+                    session.commit()
+
                 log_to_database(
                     severity=ErrorSeverity.ERROR,
                     category=ErrorCategory.DATA_INTEGRITY,
-                    message=f"File {file.path} on store {store.name} has an incorrect checksum. Expected {expected_checksum}, got {path_info.checksum}. (Instance: {file.id})",
+                    message=(
+                        f"File {file.path} on store {store.name} has an incorrect checksum. "
+                        f"Expected {expected_checksum}, got {path_info.checksum}. "
+                        f"See CorruptFile {corrupt_file.id} (Instance: {file.id})"
+                    ),
                     session=session,
                 )
 
