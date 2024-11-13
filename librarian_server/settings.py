@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional
 
 import loguru
 from notifiers.logging import NotificationHandler
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
@@ -64,6 +64,14 @@ class LogSettings(BaseModel):
     slack_webhook_url: Optional[str] = None
     slack_webhook_url_file: Optional[Path] = None
     slack_webhook_level: str = "ERROR"
+
+    def model_post_init(__context, *args, **kwargs):
+        """
+        Post initialization for the model.
+        """
+        if __context.slack_webhook_url_file is not None:
+            with open(__context.slack_webhook_url_file, "r") as handle:
+                __context.slack_webhook_url = handle.read().strip()
 
     def setup_logs(self):
         for file_name, rotation in self.files.items():
@@ -140,7 +148,7 @@ class ServerSettings(BaseSettings):
     max_async_inflight_transfers: int = 64
 
     # Log settings
-    log_settings: LogSettings = LogSettings()
+    log_settings: LogSettings = Field(default_factory=LogSettings)
 
     # Globus integration; by default disable this. This contains a client ID and
     # login secret (for authenticating with Globus as a service), whether this
@@ -171,10 +179,6 @@ class ServerSettings(BaseSettings):
         if __context.encryption_key_file is not None:
             with open(__context.encryption_key_file, "r") as handle:
                 __context.encryption_key = handle.read().strip()
-
-        if __context.slack_webhook_url_file is not None:
-            with open(__context.slack_webhook_url_file, "r") as handle:
-                __context.slack_webhook_url = handle.read().strip()
 
         if __context.globus_client_secret_file is not None:
             with open(__context.globus_client_secret_file, "r") as handle:

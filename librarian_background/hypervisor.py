@@ -284,6 +284,7 @@ def handle_stale_incoming_transfer(
             "({}, {} > {}). Catching up our transfer",
             transfer.id,
             transfer.source_transfer_id,
+            transfer.source,
             source_status,
             transfer.status,
         )
@@ -314,6 +315,7 @@ def handle_stale_incoming_transfer(
                 "({}, {} > {}). Catching up our transfer",
                 transfer.id,
                 transfer.source_transfer_id,
+                transfer.source,
                 source_status,
                 transfer.status,
             )

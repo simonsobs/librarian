@@ -4,7 +4,7 @@ Logging setup. Use this as 'from logger import log'
 
 import inspect
 
-import loguru as log
+import loguru
 import requests
 from sqlalchemy.orm import Session
 
@@ -15,41 +15,19 @@ from .settings import server_settings
 log_settings = server_settings.log_settings
 
 log_settings.setup_logs()
-log.debug("Logging set up.")
+loguru.logger.debug("Logging set up.")
+
+log = loguru.logger
 
 
 def post_text_event_to_slack(text: str) -> None:
-    log.info(text)
+    loguru.logger.info(text)
 
     return
 
 
 def post_error_to_slack(error: "Error") -> None:
-    if not server_settings.slack_webhook_enable:
-        return
-
-    if error.severity not in server_settings.slack_webhook_post_error_severity:
-        return
-
-    if error.category not in server_settings.slack_webhook_post_error_category:
-        return
-
-    requests.post(
-        server_settings.slack_webhook_url,
-        json={
-            "username": server_settings.displayed_site_name,
-            "icon_emoji": ":ledger:",
-            "text": (
-                f"*New Librarian Error at {server_settings.name}*\n"
-                f"> _Error Severity_: {error.severity.name}\n"
-                f"> _Error Category_: {error.category.name}\n"
-                f"> _Error Message_: {error.message}\n"
-                f"> _Error ID_: {error.id}\n"
-                f"> _Error Raised Time_: {error.raised_time}\n"
-                f"`{error.caller}`"
-            ),
-        },
-    )
+    return
 
 
 def log_to_database(
@@ -80,10 +58,10 @@ def log_to_database(
     # Convert severity to log level
 
     use_func = {
-        ErrorSeverity.CRITICAL: log.error,
-        ErrorSeverity.ERROR: log.error,
-        ErrorSeverity.WARNING: log.warning,
-        ErrorSeverity.INFO: log.info,
+        ErrorSeverity.CRITICAL: loguru.logger.error,
+        ErrorSeverity.ERROR: loguru.logger.error,
+        ErrorSeverity.WARNING: loguru.logger.warning,
+        ErrorSeverity.INFO: loguru.logger.info,
     }[severity]
 
     use_func(message)

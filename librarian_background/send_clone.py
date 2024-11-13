@@ -156,7 +156,7 @@ def use_batch_to_call_librarian(
     logger.info(
         "Using batch of {n} prepared files to call {lib} for egress",
         n=len(outgoing_transfers),
-        lib=librarian.name,
+        lib=librarian.name if librarian is not None else None,
     )
     # Now the outgoing transfers all have IDs! We can create the batch
     # items.
@@ -295,7 +295,7 @@ def create_send_queue_item(
             "Transfer ID {} was not returned from the batch upload process. "
             "Failing this transfer internally, and continuing, but this "
             "should not happen",
-            tid=tid,
+            tid,
         )
 
         # Because we want to re-use the list, need to iterate through it.
