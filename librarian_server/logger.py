@@ -3,8 +3,8 @@ Logging setup. Use this as 'from logger import log'
 """
 
 import inspect
-import logging as log
 
+import loguru as log
 import requests
 from sqlalchemy.orm import Session
 
@@ -12,38 +12,16 @@ from hera_librarian.errors import ErrorCategory, ErrorSeverity
 
 from .settings import server_settings
 
-logging_level = log.getLevelName(server_settings.log_level)
+log_settings = server_settings.log_settings
 
-log.basicConfig(
-    encoding="utf-8",
-    level=logging_level,
-    format="(%(module)s:%(funcName)s) [%(asctime)s] {%(levelname)s}:%(message)s",
-)
-
-error_severity_to_logging_level = {
-    ErrorSeverity.CRITICAL: log.CRITICAL,
-    ErrorSeverity.ERROR: log.ERROR,
-    ErrorSeverity.WARNING: log.WARNING,
-    ErrorSeverity.INFO: log.INFO,
-}
-
+log_settings.setup_logs()
 log.debug("Logging set up.")
 
 
 def post_text_event_to_slack(text: str) -> None:
     log.info(text)
 
-    if not server_settings.slack_webhook_enable:
-        return
-
-    requests.post(
-        server_settings.slack_webhook_url,
-        json={
-            "username": server_settings.displayed_site_name,
-            "icon_emoji": ":ledger:",
-            "text": text,
-        },
-    )
+    return
 
 
 def post_error_to_slack(error: "Error") -> None:
@@ -99,23 +77,13 @@ def log_to_database(
     the 'caller' field of the error.
     """
 
-    # Avoid circular imports.
-    from .orm.errors import Error
+    # Convert severity to log level
 
-    log_level = error_severity_to_logging_level[severity]
-    log.log(log_level, message)
+    use_func = {
+        ErrorSeverity.CRITICAL: log.error,
+        ErrorSeverity.ERROR: log.error,
+        ErrorSeverity.WARNING: log.warning,
+        ErrorSeverity.INFO: log.info,
+    }[severity]
 
-    caller = (
-        inspect.stack()[1].filename
-        + ":"
-        + inspect.stack()[1].function
-        + ":"
-        + str(inspect.stack()[1].lineno)
-    )
-
-    error = Error.new_error(severity, category, message, caller=caller)
-
-    session.add(error)
-    session.commit()
-
-    post_error_to_slack(error)
+    use_func(message)

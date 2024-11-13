@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
+import loguru
+from notifiers.logging import NotificationHandler
 from pydantic import BaseModel, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
-
-from hera_librarian.errors import ErrorCategory, ErrorSeverity
 
 from .stores import StoreNames
 
@@ -48,6 +48,39 @@ class StoreSettings(BaseModel):
             raise ValidationError(f"Invalid store type {v}")
 
         return StoreNames[v]
+
+
+class LogSettings(BaseModel):
+    """
+    Settings for the loguru logger.
+    """
+
+    files: dict[Path, str] = {}
+    "Egress files for the logger. Rotation (e.g. 500 MB, 1 week) is the string."
+
+    # Slack integration; by default disable this. You will need a slack
+    # webhook url, and by default we raise all log_to_database alerts to slack too.
+    slack_webhook_enable: bool = False
+    slack_webhook_url: Optional[str] = None
+    slack_webhook_url_file: Optional[Path] = None
+    slack_webhook_level: str = "ERROR"
+
+    def setup_logs(self):
+        for file_name, rotation in self.files.items():
+            loguru.add(file_name, rotation=rotation, enqueue=True)
+
+        if self.slack_webhook_enable:
+            params = {
+                "username": server_settings.displayed_site_name,
+                "icon_emoji": ":ledger:",
+                "webhook_url": self.slack_webhook_url,
+            }
+
+            handler = NotificationHandler("slack", defaults=params)
+
+            loguru.add(handler, level=self.slack_webhook_level)
+
+        return
 
 
 class ServerSettings(BaseSettings):
@@ -106,13 +139,8 @@ class ServerSettings(BaseSettings):
     # a specific destination.
     max_async_inflight_transfers: int = 64
 
-    # Slack integration; by default disable this. You will need a slack
-    # webhook url, and by default we raise all log_to_database alerts to slack too.
-    slack_webhook_enable: bool = False
-    slack_webhook_url: Optional[str] = None
-    slack_webhook_url_file: Optional[Path] = None
-    slack_webhook_post_error_severity: list[ErrorSeverity] = list(ErrorSeverity)
-    slack_webhook_post_error_category: list[ErrorCategory] = list(ErrorCategory)
+    # Log settings
+    log_settings: LogSettings = LogSettings()
 
     # Globus integration; by default disable this. This contains a client ID and
     # login secret (for authenticating with Globus as a service), whether this
