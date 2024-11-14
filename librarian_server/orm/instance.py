@@ -91,6 +91,7 @@ class Instance(db.Base):
         session: Session,
         commit: bool = True,
         force: bool = False,
+        mark_unavailable: bool = False,
     ):
         """
         Delete this instance.
@@ -103,12 +104,17 @@ class Instance(db.Base):
             Whether or not to commit the deletion.
         force : bool
             Whether or not to force the deletion (i.e. ignore DeletionPolicy)
+        mark_unavailable: bool
+            If true, only mark this as unavailable, don't delete the metadata
         """
 
         if self.deletion_policy == DeletionPolicy.ALLOWED or force:
             self.store.store_manager.delete(Path(self.path))
 
-        session.delete(self)
+        if mark_unavailable:
+            self.available = False
+        else:
+            session.delete(self)
 
         if commit:
             session.commit()
