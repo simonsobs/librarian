@@ -59,7 +59,7 @@ class LogSettings(BaseModel):
     "Egress files for the logger. Rotation (e.g. 500 MB, 1 week) is the string."
 
     # Slack integration; by default disable this. You will need a slack
-    # webhook url, and by default we raise all log_to_database alerts to slack too.
+    # webhook url, and by default we raise all error alerts to slack too.
     slack_webhook_enable: bool = False
     slack_webhook_url: Optional[str] = None
     slack_webhook_url_file: Optional[Path] = None
@@ -73,20 +73,20 @@ class LogSettings(BaseModel):
             with open(__context.slack_webhook_url_file, "r") as handle:
                 __context.slack_webhook_url = handle.read().strip()
 
-    def setup_logs(self):
+    def setup_logs(self, username: str):
         for file_name, rotation in self.files.items():
-            loguru.add(file_name, rotation=rotation, enqueue=True)
+            loguru.logger.add(file_name, rotation=rotation, enqueue=True)
 
         if self.slack_webhook_enable:
             params = {
-                "username": server_settings.displayed_site_name,
+                "username": username,
                 "icon_emoji": ":ledger:",
                 "webhook_url": self.slack_webhook_url,
             }
 
             handler = NotificationHandler("slack", defaults=params)
 
-            loguru.add(handler, level=self.slack_webhook_level)
+            loguru.logger.add(handler, level=self.slack_webhook_level)
 
         return
 

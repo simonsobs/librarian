@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 
 from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
 from librarian_server.database import get_session
-from librarian_server.logger import ErrorCategory, ErrorSeverity, log_to_database
 from librarian_server.orm import CloneTransfer, Instance, StoreMetadata, TransferStatus
 
 from .task import Task
