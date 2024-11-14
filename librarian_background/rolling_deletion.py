@@ -160,7 +160,7 @@ class RollingDeletion(Task):
                     force=self.force_deletion,
                     mark_unavailable=self.mark_unavailable,
                 )
-                logger.info("Deleted instance {} successfully", instance.id)
+                logger.info("Deleted data for instance {} successfully", instance.id)
                 deleted += 1
             except FileNotFoundError:
                 logger.error(

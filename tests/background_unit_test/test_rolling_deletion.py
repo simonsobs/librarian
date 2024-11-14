@@ -8,17 +8,7 @@ from pathlib import Path
 from hera_librarian.deletion import DeletionPolicy
 
 
-def test_rolling_deletion_with_single_instance(
-    test_client, test_server, test_orm, garbage_file
-):
-    """
-    Delete a single instance.
-    """
-    from librarian_background.rolling_deletion import RollingDeletion
-
-    _, get_session, _ = test_server
-
-    session = get_session()
+def prep_file(garbage_file, test_orm, session):
 
     store = session.query(test_orm.StoreMetadata).filter_by(ingestable=True).first()
 
@@ -46,6 +36,24 @@ def test_rolling_deletion_with_single_instance(
     session.add_all([file, instance])
     session.commit()
 
+    return store, file, instance
+
+
+def test_rolling_deletion_with_single_instance(
+    test_client, test_server, test_orm, garbage_file
+):
+    """
+    Delete a single instance.
+    """
+    from librarian_background.rolling_deletion import RollingDeletion
+
+    _, get_session, _ = test_server
+
+    session = get_session()
+
+    store, file, instance = prep_file(garbage_file, test_orm, session)
+
+    FILE_NAME = file.name
     INSTANCE_ID = instance.id
 
     # Run the task
@@ -62,10 +70,64 @@ def test_rolling_deletion_with_single_instance(
 
     assert task
 
+    session.close()
+
+    session = get_session()
+
     # Check that the instance is gone
     assert (
         session.query(test_orm.Instance).filter_by(id=INSTANCE_ID).one_or_none() is None
     )
+
+    # Delete the file we created
+    session.get(test_orm.File, FILE_NAME).delete(
+        session=session, commit=True, force=True
+    )
+
+    return
+
+
+def test_rolling_deletion_with_single_instance_unavailable(
+    test_client, test_server, test_orm, garbage_file
+):
+    """
+    Delete a single instance.
+    """
+    from librarian_background.rolling_deletion import RollingDeletion
+
+    _, get_session, _ = test_server
+
+    session = get_session()
+
+    store, file, instance = prep_file(garbage_file, test_orm, session)
+
+    FILE_NAME = file.name
+    INSTANCE_ID = instance.id
+
+    # Run the task
+    task = RollingDeletion(
+        name="Rolling deletion",
+        soft_timeout="6:00:00",
+        store_name=store.name,
+        age_in_days=0.0000000000000000001,
+        number_of_remote_copies=0,
+        verify_downstream_checksums=False,
+        mark_unavailable=True,
+        force_deletion=False,
+    )()
+
+    assert task
+
+    # bgtask uses a different session
+    session.close()
+
+    session = get_session()
+
+    # Check that the instance is gone
+    re_queried = (
+        session.query(test_orm.Instance).filter_by(id=INSTANCE_ID).one_or_none()
+    )
+    assert not re_queried.available
 
     # Delete the file we created
     session.get(test_orm.File, FILE_NAME).delete(
