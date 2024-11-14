@@ -24,6 +24,7 @@ from hera_librarian.models.validate import (
 from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
 
 from ..database import yield_session
+from ..logger import log
 from ..orm.file import CorruptFile, File
 from ..orm.instance import Instance
 from ..orm.librarian import Librarian
