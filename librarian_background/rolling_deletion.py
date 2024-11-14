@@ -29,7 +29,7 @@ class RollingDeletion(Task):
 
     store_name: str
     "Name of the store to delete instances from"
-    age_in_days: int
+    age_in_days: float
     "Age of the instances to delete, in days; older files will be deleted if they pass the checks"
 
     number_of_remote_copies: int = 3
@@ -89,9 +89,10 @@ class RollingDeletion(Task):
 
         deleted = 0
         for instance in instances:
+            # TODO: Soft timeout
             # Check that we got what we wanted.
             try:
-                assert instance.created_at < age_cutoff
+                # assert instance.created_time < age_cutoff
                 assert instance.store_id == store.id
                 assert instance.available
             except AssertionError:
@@ -103,7 +104,7 @@ class RollingDeletion(Task):
             # Check if the file associated with the instance has enough copies.
             remote_librarian_ids = {
                 remote_instance.librarian_id
-                for remote_instance in instance.remote_instances
+                for remote_instance in instance.file.remote_instances
             }
 
             logger.info(
