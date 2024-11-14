@@ -1,6 +1,7 @@
 # Copyright 2017 the HERA Collaboration
 # Licensed under the 2-clause BSD License.
 
+
 """Add librarian transfer toggling and corruption
 
 Revision ID: 1def8c988372
@@ -40,3 +41,5 @@ def upgrade():
 def downgrade():
     op.drop_column("librarians", "transfers_enabled")
     op.drop_table("corrupt_files")
+
+
