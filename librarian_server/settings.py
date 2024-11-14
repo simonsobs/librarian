@@ -86,7 +86,15 @@ class LogSettings(BaseModel):
 
             handler = NotificationHandler("slack", defaults=params)
 
-            loguru.logger.add(handler, level=self.slack_webhook_level)
+            format = (
+                "Librarian *{level: <8}*\n"
+                "> _Module_ `{name}`\n"
+                "> _Function_ `{function}:{line}`\n"
+                "> *{message}*\n"
+                "> _Raised at_ {time: YYYY-MM-DD HH:mm:ss.SSS}\n"
+            )
+
+            loguru.logger.add(handler, level=self.slack_webhook_level, format=format)
 
         return
 
