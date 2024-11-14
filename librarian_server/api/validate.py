@@ -211,13 +211,13 @@ async def validate_file(
                 )
                 session.add(corrupt_file)
                 session.commit()
-                
+
             log.error(
                 "File validation failed, the checksums do not match for file "
                 "{} in store {}. CorruptFile: {}",
                 request.file_name,
                 info.store,
-                corrupt_file.id
+                corrupt_file.id,
             )
 
     return FileValidationResponse(checksum_info)

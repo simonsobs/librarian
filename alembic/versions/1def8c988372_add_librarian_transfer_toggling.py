@@ -41,5 +41,3 @@ def upgrade():
 def downgrade():
     op.drop_column("librarians", "transfers_enabled")
     op.drop_table("corrupt_files")
-
-
