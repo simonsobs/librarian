@@ -202,3 +202,70 @@ def test_rolling_deletion_with_multiple_files_age_out(
         )
 
     return
+
+
+def test_rolling_deletion_with_multiple_files_age_out_no_deletion_due_to_policy(
+    test_client, test_server, test_orm, garbage_file
+):
+    """
+    See if we correctly age out several files, but don't actually delete them because
+    we can't find remote instances.
+    """
+    from librarian_background.rolling_deletion import RollingDeletion
+
+    _, get_session, _ = test_server
+
+    session = get_session()
+
+    file_names = []
+    file_ages = []
+    instance_ids = []
+
+    for file_id in range(1, 10):
+        store, file, instance = prep_file(
+            garbage_file, test_orm, session, f"TEST_FILE/{file_id}.txt"
+        )
+        file.create_time = file.create_time - timedelta(days=file_id)
+        instance.created_time = file.create_time
+
+        file_names.append(file.name)
+        file_ages.append(file_id)
+        instance_ids.append(instance.id)
+
+    session.commit()
+
+    # Run the task
+    task = RollingDeletion(
+        name="Rolling deletion",
+        soft_timeout="6:00:00",
+        store_name=store.name,
+        age_in_days=5.0,
+        number_of_remote_copies=1,
+        verify_downstream_checksums=True,
+        mark_unavailable=True,
+        force_deletion=False,
+    )()
+
+    # Task officially fails; it could not delete the required number of instances
+    assert not task
+
+    session.close()
+
+    session = get_session()
+
+    # Check that the older instances are gone
+
+    instances = [
+        session.query(test_orm.Instance).filter_by(id=id).one_or_none()
+        for id in instance_ids
+    ]
+
+    for name, age, instance in zip(file_names, file_ages, instances):
+        assert instance.available
+
+        # Delete the file we created
+        session.get(test_orm.File, name).delete(
+            session=session, commit=True, force=True
+        )
+
+    return
