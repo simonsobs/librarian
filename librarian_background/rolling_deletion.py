@@ -95,7 +95,16 @@ class RollingDeletion(Task):
 
         deleted = 0
         for instance in instances:
-            # TODO: Soft timeout
+            # First, see if we've timed out.
+            if datetime.datetime.now(timezone.utc) - core_begin > self.soft_timeout:
+                logger.warning(
+                    "Ran out of time in deletion task! Only successfully deleted "
+                    "{n}/{m} instances; we will return later",
+                    n=deleted,
+                    m=len(instances),
+                )
+                return False
+
             # Check that we got what we wanted.
             try:
                 assert instance.created_time.replace(tzinfo=timezone.utc) < age_cutoff
