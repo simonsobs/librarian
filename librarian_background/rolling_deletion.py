@@ -69,10 +69,16 @@ class RollingDeletion(Task):
 
         # Get the instances that are older than the age
 
+        logger.info(
+            "Querying for created_times later than {} UTC ({} local)",
+            age_cutoff,
+            age_cutoff.astimezone(),
+        )
+
         query_begin = time.perf_counter()
         stmt = select(Instance).filter(
             Instance.store_id == store.id,
-            Instance.created_time < age_cutoff,
+            Instance.created_time < age_cutoff.astimezone(timezone.utc),
             Instance.available == True,
         )
 
@@ -92,7 +98,7 @@ class RollingDeletion(Task):
             # TODO: Soft timeout
             # Check that we got what we wanted.
             try:
-                # assert instance.created_time < age_cutoff
+                assert instance.created_time.replace(tzinfo=timezone.utc) < age_cutoff
                 assert instance.store_id == store.id
                 assert instance.available
             except AssertionError:
