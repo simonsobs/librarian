@@ -96,14 +96,15 @@ class RollingDeletion(Task):
         deleted = 0
         for instance in instances:
             # First, see if we've timed out.
-            if (datetime.now(timezone.utc) - core_begin) > self.soft_timeout:
-                logger.warning(
-                    "Ran out of time in deletion task! Only successfully deleted "
-                    "{n}/{m} instances; we will return later",
-                    n=deleted,
-                    m=len(instances),
-                )
-                return False
+            if self.soft_timeout is not None:
+                if (datetime.now(timezone.utc) - core_begin) > self.soft_timeout:
+                    logger.warning(
+                        "Ran out of time in deletion task! Only successfully deleted "
+                        "{n}/{m} instances; we will return later",
+                        n=deleted,
+                        m=len(instances),
+                    )
+                    return False
 
             # Check that we got what we wanted.
             try:
