@@ -110,7 +110,7 @@ class RollingDeletion(Task):
             valid_time = instance.created_time.replace(tzinfo=timezone.utc) < age_cutoff
             valid_store = instance.store_id == store.id
             all_ok = valid_time and valid_store and instance.available
-            
+
             if not all_ok:
                 logger.error(
                     "Instance {} does not meet the criteria, skipping", instance.id
@@ -144,8 +144,10 @@ class RollingDeletion(Task):
             # Now check if we have enough!
             if len(downstream) < self.number_of_remote_copies:
                 logger.warning(
-                    "Instance {} does not have enough remote copies, skipping",
+                    "Instance {} does not have enough remote copies {}/{}, skipping",
                     instance.id,
+                    len(downstream),
+                    self.number_of_remote_copies,
                 )
                 continue
 
