@@ -30,7 +30,7 @@ class RollingDeletion(Task):
     store_name: str
     "Name of the store to delete instances from"
     age_in_days: float
-    "Age of the instances to delete, in days; older files will be deleted if they pass the checks"
+    "Age of the instances to delete, in days; older instances will be deleted if they pass the checks"
 
     number_of_remote_copies: int = 3
     "Number of remote copies that must be available to delete the file"
