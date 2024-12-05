@@ -107,11 +107,11 @@ class RollingDeletion(Task):
                     return False
 
             # Check that we got what we wanted.
-            try:
-                assert instance.created_time.replace(tzinfo=timezone.utc) < age_cutoff
-                assert instance.store_id == store.id
-                assert instance.available
-            except AssertionError:
+            valid_time = instance.created_time.replace(tzinfo=timezone.utc) < age_cutoff
+            valid_store = instance.store_id == store.id
+            all_ok = valid_time and valid_store and instance.available
+            
+            if not all_ok:
                 logger.error(
                     "Instance {} does not meet the criteria, skipping", instance.id
                 )
