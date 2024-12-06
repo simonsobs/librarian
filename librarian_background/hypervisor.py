@@ -10,8 +10,10 @@ b) Successful transfer, if the file is found on the downstream
 
 import datetime
 import time
+from time import perf_counter
 
 from loguru import logger
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from hera_librarian.exceptions import LibrarianHTTPError, LibrarianTimeoutError
@@ -409,5 +411,111 @@ class IncomingTransferHypervisor(Task):
                 return False
 
             handle_stale_incoming_transfer(session, transfer)
+
+        return True
+
+
+class DuplicateRemoteInstanceHypervisor(Task):
+    """
+    Checks for duplicate remote instances in the table and handles them.
+    """
+
+    def on_call(self):
+        with get_session() as session:
+            return self.core(session=session)
+
+    def core(self, session):
+        query_start = perf_counter()
+
+        stmt = (
+            select(
+                RemoteInstance.file_name,
+                RemoteInstance.store_id,
+                RemoteInstance.librarian_id,
+            )
+            .group_by(
+                RemoteInstance.file_name,
+                RemoteInstance.store_id,
+                RemoteInstance.librarian_id,
+            )
+            .having(func.count() > 1)
+        )
+
+        results = session.execute(stmt).scalars().all()
+
+        query_end = perf_counter()
+
+        logger.info(
+            "Took {}s to query for {} duplicate remote instance files",
+            query_end - query_start,
+            len(results),
+        )
+
+        deleted = 0
+
+        for file_name in results:
+            stmt = (
+                select(RemoteInstance)
+                .filter_by(file_name=file_name)
+                .order_by(RemoteInstance.copy_time)
+            )
+
+            potential_duplicates = session.execute(stmt).scalars().all()
+
+            if len(potential_duplicates) < 2:
+                # Uhh, but there aren't any?
+                logger.warning(
+                    "Initial query suggested that remote instance table contains "
+                    "duplicates for {fn} but we only found {n} results when re-querying",
+                    fn=file_name,
+                    n=len(potential_duplicates),
+                )
+
+                continue
+
+            for_removal = []
+            # Some may be duplicates, some might not!
+            for i, potential_original in enumerate(potential_duplicates[:-1]):
+                if potential_original in for_removal:
+                    continue
+                for potential_duplicate in potential_duplicates[i + 1 :]:
+                    if potential_duplicate in for_removal:
+                        continue
+
+                    is_duplicate = (
+                        potential_original.file_name == potential_duplicate.file_name
+                        and potential_original.librarian_id
+                        == potential_duplicate.librarian_id
+                        and potential_original.store_id == potential_duplicate.store_id
+                    )
+
+                    if is_duplicate:
+                        for_removal.append(potential_duplicate)
+
+            logger.info(
+                "Found {n_dupe} duplicates out of a total {n_pot} remote instances;"
+                "deleting the duplicates",
+                n_dupe=len(for_removal),
+                n_pot=len(potential_duplicates),
+            )
+
+            if len(for_removal) >= len(potential_duplicates):
+                # This is definitely bad...
+                logger.warning(
+                    "Found more duplicates than original rows; skipping (see logs)"
+                )
+                continue
+
+            for duplicate in for_removal:
+                deleted += 1
+                session.delete(duplicate)
+
+            session.commit()
+
+        logger.info(
+            "Successfully completed the duplicate hypervisor task and removed "
+            "a total of {n} duplicate remote instances",
+            n=deleted,
+        )
 
         return True
