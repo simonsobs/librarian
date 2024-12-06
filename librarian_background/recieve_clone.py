@@ -125,6 +125,8 @@ class RecieveClone(Task):
                     e=e,
                 )
 
+                # Callback
+                transfer.fail_transfer(session, commit=True)
                 all_transfers_succeeded = False
 
                 continue
