@@ -177,6 +177,8 @@ class CorruptFile(db.Base):
     "The checksum of the file that was re-computed and found to be incorrect."
     count: int = db.Column(db.Integer)
     "The number of times this file has been marked as corrupt."
+    replacement_requested: bool = db.Column(db.Boolean, default=False)
+    "Whether or not a replacement has been requested for this file."
 
     @classmethod
     def new_corrupt_file(

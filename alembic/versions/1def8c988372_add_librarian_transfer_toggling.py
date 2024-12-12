@@ -34,10 +34,17 @@ def upgrade():
         sa.Column("size", sa.BigInteger(), nullable=False),
         sa.Column("checksum", sa.String(), nullable=False),
         sa.Column("count", sa.Integer(), nullable=False),
+        sa.Column("replacement_requested", sa.Boolean(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
+
+    with op.batch_alter_table("outgoing_transfers") as batch_op:
+        batch_op.alter_column("file_name", nullable=True)
 
 
 def downgrade():
     op.drop_column("librarians", "transfers_enabled")
     op.drop_table("corrupt_files")
+
+    with op.batch_alter_table("outgoing_transfers") as batch_op:
+        batch_op.alter_column("file_name", nullable=False)
