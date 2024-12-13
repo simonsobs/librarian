@@ -2,9 +2,14 @@
 API Endpoints for the upstream half of the corrupt files workflow.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from hera_librarian.utils import get_hash_function_from_hash
+from hera_librarian.exceptions import LibrarianError, LibrarianHTTPError
+from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from librarian_server.orm.instance import Instance, RemoteInstance
+from librarian_server.orm.librarian import Librarian
 
 router = APIRouter(prefix="/api/v2/corrupt")
 
@@ -25,17 +30,17 @@ class CorruptionPreparationResponse(BaseModel):
 
 
 def user_and_librarian_validation_flow(
-    user, librarian_name, file_name
+    user, librarian_name, file_name, session
 ) -> tuple[Librarian, File, Instance, list[RemoteInstance]]:
     user_is_librarian = user.username == librarian_name
 
-    stmt = select(Librarian).filter_by(name=request.librarian_name)
+    stmt = select(Librarian).filter_by(name=librarian_name)
     librarian = session.execute(stmt).scalars().one_or_none()
 
     librarian_exists = librarian is not None
 
     stmt = select(RemoteInstance).filter_by(
-        file_name=request.file_name, librarian_id=librarian.id
+        file_name=file_name, librarian_id=librarian.id
     )
     remote_instances = session.execute(stmt).scalars().all()
 
@@ -46,22 +51,32 @@ def user_and_librarian_validation_flow(
         and user_is_librarian
         and librarian_exists
     ):
-        # 401
-        pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=dict(
+                reason="Unauthorized",
+                suggested_remedy="",
+            ),
+        )
 
     # So at this point we know:
     # Downstream is the one asking for the new copy
     # We sent them a copy that we confirmed
 
     # Check our own instance of the file to make sure it's not corrupted.
-    stmt = select(File).filter_by(file_name=request.file_name)
+    stmt = select(File).filter_by(file_name=file_name)
     file = session.execute(stmt).scalars().one_or_none()
 
     try:
         best_instance = [x for x in file.instances if x.available][0]
     except IndexError:
-        # 400
-        return
+        raise HTTPException(
+            status_code=status.HTTP_409_BAD_REQUEST,
+            detail=dict(
+                reason="We do not have a copy of the file you are requesting",
+                suggested_remedy="Check your database; you likely did not get the file from us",
+            ),
+        )
 
     hash_function = get_hash_function_from_hash(file.checksum)
     path_info = best_instance.store.path_info(
@@ -69,13 +84,25 @@ def user_and_librarian_validation_flow(
     )
 
     if not compare_checksums(file.checksum, path_info.checksum):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=dict(
+                reason="Our copy of the file is also corrupt",
+                suggested_remedy="Wait a while, we will attempt to fix this copy",
+            ),
+        )
         # Brother not this shit again
-        # 400
-        # Add to corrupt files table
+        # Add to corrupt files table?
         # Extremely unlikely
-        return
 
     # We know we have a valid copy of the file ready to go.
+
+    # Do we have login details for your librarian?
+    login_success = True
+    try:
+        librarian.client().ping(require_login=True)
+    except (LibrarianError, LibrarianHTTPError):
+        login_success = False
 
     from librarian_background import background_settings
 
@@ -83,16 +110,15 @@ def user_and_librarian_validation_flow(
         background_settings.consume_queue
         and background_settings.check_consumed_queue
         and librarian.transfers_enabled
+        and login_success
     ):
-        # 400 we can't send anything!
-        return
-
-    # Do we have login details for your librarian?
-    try:
-        librarian.client().ping(require_login=True)
-    except (LibrarianError, LibrarianHTTPError):
-        # Urrr we can't login no good
-        return
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=dict(
+                reason="We are not able to send you files",
+                suggested_remedy="Check every pre-condition for file transfers is met",
+            ),
+        )
 
     return librarian, file, best_instance, remote_instances
 
@@ -112,7 +138,7 @@ def prepare(
 
     Possible response codes:
 
-    400 - We do not have a valid copy of the file either!
+    409 - We do not have a valid copy of the file either!
         -> You are out of luck. Maybe try again later as we might restore from
            a librarian above us in the chain?
     401 - You are asking about a file that was not sent to your librarian
@@ -128,7 +154,10 @@ def prepare(
     )
 
     user_and_librarian_validation_flow(
-        user, librarian_name=request.librarian_name, file_name=request.file_name
+        user,
+        librarian_name=request.librarian_name,
+        file_name=request.file_name,
+        session=session,
     )
 
     return CorruptionPreparationResponse(ready=True)
@@ -163,7 +192,7 @@ def resend(
 
     Possible response codes:
 
-    400 - We don't have a valid copy of the file.
+    409 - We don't have a valid copy of the file.
     201 - We created the transfer
         -> Success!
     """
@@ -175,7 +204,10 @@ def resend(
     )
 
     librarian, file, instance, remote_instances = user_and_librarian_validation_flow(
-        user, librarian_name=request.librarian_name, file_name=request.file_name
+        user,
+        librarian_name=request.librarian_name,
+        file_name=request.file_name,
+        session=session,
     )
 
     from librarian_background.create_clone import send_file_batch
