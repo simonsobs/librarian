@@ -211,7 +211,6 @@ class CorruptFile(db.Base):
             file_source=instance.file.source,
             instance_id=instance.id,
             instance_path=instance.path,
-            instance=instance,
             corrupt_time=datetime.now(timezone.utc),
             size=size,
             checksum=checksum,

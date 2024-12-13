@@ -8,7 +8,7 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from hera_librarian.errors import LibrarianError, LibrarianHTTPError
+from hera_librarian.exceptions import LibrarianError, LibrarianHTTPError
 from hera_librarian.models.corrupt import (
     CorruptionPreparationRequest,
     CorruptionPreparationResponse,
