@@ -7,6 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from hera_librarian.exceptions import LibrarianError, LibrarianHTTPError
+from hera_librarian.models.corrupt import (
+    CorruptionPreparationRequest,
+    CorruptionPreparationResponse,
+    CorruptionResendRequest,
+    CorruptionResendResponse,
+)
 from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
 from librarian_server.orm.instance import Instance, RemoteInstance
 from librarian_server.orm.librarian import Librarian
@@ -14,24 +20,19 @@ from librarian_server.orm.librarian import Librarian
 router = APIRouter(prefix="/api/v2/corrupt")
 
 from loguru import logger
-from pydantic import BaseModel
 
 from ..database import yield_session
-from .auth import CallbackUserDependency, ReadappendUserDependency
-
-
-class CorruptionPreparationRequest(BaseModel):
-    file_name: str
-    librarian_name: str
-
-
-class CorruptionPreparationResponse(BaseModel):
-    ready: bool
+from .auth import CallbackUserDependency, User
 
 
 def user_and_librarian_validation_flow(
-    user, librarian_name, file_name, session
+    user: User, librarian_name: str, file_name: str, session: Session
 ) -> tuple[Librarian, File, Instance, list[RemoteInstance]]:
+    """
+    Figure out if this user is a librarian and that we can make file transfers
+    to that librarian for this file. Also validates the file on our librarian to make
+    sure it is not corrupt and is present.
+    """
     user_is_librarian = user.username == librarian_name
 
     stmt = select(Librarian).filter_by(name=librarian_name)
@@ -163,15 +164,6 @@ def prepare(
     return CorruptionPreparationResponse(ready=True)
 
 
-class CorruptionResendRequest(BaseModel):
-    librarian_name: str
-    file_name: str
-
-
-class CorruptionResendResponse(BaseModel):
-    success: bool
-
-
 @router.post("/resend")
 def resend(
     request: CorruptionResendRequest,
@@ -227,4 +219,6 @@ def resend(
             request.file_name,
         )
 
-    return CorruptionResendResponse(success=success)
+    return CorruptionResendResponse(
+        success=bool(success), destination_transfer_id=success[0]
+    )

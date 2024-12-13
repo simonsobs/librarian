@@ -150,7 +150,10 @@ class File(db.Base):
 class CorruptFile(db.Base):
     """
     An ORM object for a file that has been marked as (potentially) corrupt
-    during a check. This will need to be verified and fixed.
+    during a check. This will need to be verified and fixed. We do not store
+    references to the files and instances table here because those may be
+    deleted as part of the recovery process. As such, we need to store
+    copies of that data so that we can ask upstream for file recovery.
     """
 
     __tablename__ = "corrupt_files"
@@ -158,16 +161,14 @@ class CorruptFile(db.Base):
     id: int = db.Column(db.Integer, primary_key=True)
     "The ID of the corrupt file."
     file_name: str = db.Column(
-        db.String(256), db.ForeignKey("files.name"), nullable=False
+        db.String(256),
     )
     "The name of the file."
-    file = db.relationship("File", primaryjoin="CorruptFile.file_name == File.name")
-    "The file object associated with this."
-    instance_id: int = db.Column(db.Integer, db.ForeignKey("instances.id"))
+    file_source: str = db.Column(db.String(256))
+    "The source of the file."
+    instance_id: int = db.Column(db.Integer)
     "The instance ID of the corrupt file."
-    instance = db.relationship(
-        "Instance", primaryjoin="CorruptFile.instance_id == Instance.id"
-    )
+    instance_path: str = db.Column(db.String(256))
     "The instance object associated with this."
     corrupt_time: datetime = db.Column(db.DateTime)
     "The time at which the file was marked as corrupt."
@@ -177,8 +178,11 @@ class CorruptFile(db.Base):
     "The checksum of the file that was re-computed and found to be incorrect."
     count: int = db.Column(db.Integer)
     "The number of times this file has been marked as corrupt."
+
     replacement_requested: bool = db.Column(db.Boolean, default=False)
     "Whether or not a replacement has been requested for this file."
+    incoming_transfer_id: int = db.Column(db.Integer)
+    "The incoming transfer associated with the replacement"
 
     @classmethod
     def new_corrupt_file(
@@ -204,8 +208,9 @@ class CorruptFile(db.Base):
 
         return CorruptFile(
             file_name=instance.file.name,
-            file=instance.file,
+            file_source=instance.file.source,
             instance_id=instance.id,
+            instance_path=instance.path,
             instance=instance,
             corrupt_time=datetime.now(timezone.utc),
             size=size,

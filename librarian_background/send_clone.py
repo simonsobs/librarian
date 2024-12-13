@@ -532,7 +532,7 @@ def send_file_batch(
 
     call_destination_and_state_ongoing(send=send, session=session)
 
-    return True
+    return list(transfer_map.values())
 
 
 class SendClone(Task):

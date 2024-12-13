@@ -402,6 +402,10 @@ def test_send_from_existing_file_row(
             for instance in file.instances:
                 assert instance.available == False
 
+    # Now see what happens when we corrupt a file and run the appropriate background tasks.
+    from librarian_background.check_integrity import CheckIntegrity
+    from librarian_background.corruption_fixer import CorruptionFixer
+
     # Remove the librarians we added.
     assert mocked_admin_client.remove_librarian(name="live_server")
 
