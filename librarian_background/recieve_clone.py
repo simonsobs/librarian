@@ -5,12 +5,10 @@ to see if they have completed.
 """
 
 import datetime
-import logging
 import time
-import traceback
-from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
+import cryptography
 from loguru import logger
 from sqlalchemy.orm import Session
 
@@ -19,9 +17,7 @@ from hera_librarian.exceptions import LibrarianHTTPError
 from hera_librarian.models.clone import CloneCompleteRequest, CloneCompleteResponse
 from librarian_server.database import get_session
 from librarian_server.orm import (
-    File,
     IncomingTransfer,
-    Instance,
     Librarian,
     StoreMetadata,
     TransferStatus,
@@ -157,16 +153,17 @@ class RecieveClone(Task):
 
                 logger.debug(f"Request to send: {request}")
 
-                downstream_client = librarian.client()
-
                 try:
+                    downstream_client = librarian.client()
+
                     logger.info("Sending clone complete request")
                     response: CloneCompleteResponse = downstream_client.post(
                         endpoint="clone/complete",
                         request=request,
                         response=CloneCompleteResponse,
                     )
-                except LibrarianHTTPError as e:
+                except (LibrarianHTTPError, cryptography.fernet.InvalidToken) as e:
+                    # Cryptography error sometimes happens when we mix up configs in testing
                     logger.error(
                         "Failed to call back to librarian {name} with exception {e}",
                         name=librarian.name,

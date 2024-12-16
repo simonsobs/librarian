@@ -294,12 +294,12 @@ def test_send_from_existing_file_row(
     # Force downstream to execute their background tasks.
     from librarian_background.recieve_clone import RecieveClone
 
-    task = RecieveClone(
+    recv_task = RecieveClone(
         name="recv_clone",
     )
 
     with librarian_database_session_maker() as session:
-        task.core(session=session)
+        recv_task.core(session=session)
 
     # Now check the downstream librarian that it got all those files!
     with source_session_maker() as session:
@@ -403,8 +403,37 @@ def test_send_from_existing_file_row(
                 assert instance.available == False
 
     # Now see what happens when we corrupt a file and run the appropriate background tasks.
-    from librarian_background.check_integrity import CheckIntegrity
-    from librarian_background.corruption_fixer import CorruptionFixer
+    # from librarian_background.check_integrity import CheckIntegrity
+    # from librarian_background.corruption_fixer import CorruptionFixer
+
+    # # Break a file
+    # with librarian_database_session_maker() as session:
+    #     instance = session.query(test_orm.Instance).limit(10).all()[-1]
+    #     chosen_instance_id = instance.id
+    #     purposefully_broken_path = instance.path
+
+    #     with open(purposefully_broken_path, "w") as f:
+    #         f.write("hahaha i broke ur file")
+
+    #     CheckIntegrity(
+    #         name="check_integrity",
+    #         store_name="local_store",
+    #         age_in_days=10
+    #     ).core(session=session)
+
+    # # Check that we got a corrupt file
+    # with librarian_database_session_maker() as session:
+    #     broken_file = session.query(test_orm.CorruptFile).filter_by(instance_id=chosen_instance_id).one_or_none()
+    #     broken_file_name = broken_file.file_name
+    #     assert broken_file is not None
+
+    # # Now run the fix flow.
+    # task = CorruptionFixer(
+    #     name="fix_me"
+    # )
+    # with librarian_database_session_maker() as session:
+    #     task.core(session)
+    #     recv_task.core(session)
 
     # Remove the librarians we added.
     assert mocked_admin_client.remove_librarian(name="live_server")

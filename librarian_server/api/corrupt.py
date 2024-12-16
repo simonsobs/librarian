@@ -2,7 +2,7 @@
 API Endpoints for the upstream half of the corrupt files workflow.
 """
 
-from fastapi import APIRouter, Depends, File, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,7 @@ from hera_librarian.models.corrupt import (
     CorruptionResendResponse,
 )
 from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from librarian_server.orm.file import File
 from librarian_server.orm.instance import Instance, RemoteInstance
 from librarian_server.orm.librarian import Librarian
 
@@ -52,6 +53,12 @@ def user_and_librarian_validation_flow(
         and user_is_librarian
         and librarian_exists
     ):
+        logger.debug(
+            "Problem authenticating remedy request, Remote instance: {}, User is librarian: {}, Librarian exists: {}",
+            remote_instance_registered_at_destination,
+            user_is_librarian,
+            librarian_exists,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=dict(
@@ -65,7 +72,7 @@ def user_and_librarian_validation_flow(
     # We sent them a copy that we confirmed
 
     # Check our own instance of the file to make sure it's not corrupted.
-    stmt = select(File).filter_by(file_name=file_name)
+    stmt = select(File).filter_by(name=file_name)
     file = session.execute(stmt).scalars().one_or_none()
 
     try:
@@ -80,11 +87,16 @@ def user_and_librarian_validation_flow(
         )
 
     hash_function = get_hash_function_from_hash(file.checksum)
-    path_info = best_instance.store.path_info(
+    path_info = best_instance.store.store_manager.path_info(
         best_instance.path, hash_function=hash_function
     )
 
     if not compare_checksums(file.checksum, path_info.checksum):
+        logger.error(
+            "Our copy of the file {} is corrupt, we cannot send it to {}",
+            file_name,
+            librarian_name,
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=dict(
@@ -113,6 +125,15 @@ def user_and_librarian_validation_flow(
         and librarian.transfers_enabled
         and login_success
     ):
+        logger.warning(
+            "Unable to transfer files to downstream librarian {}: "
+            "Consume queue: {}, check consume queue: {}, transfers enabled: {}, login success: {}",
+            librarian.name,
+            bool(background_settings.consume_queue),
+            bool(background_settings.check_consumed_queue),
+            librarian.transfers_enabled,
+            login_success,
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=dict(
@@ -161,6 +182,12 @@ def prepare(
         session=session,
     )
 
+    logger.info(
+        "Prepared to send a new copy of {} to {}",
+        request.file_name,
+        request.librarian_name,
+    )
+
     return CorruptionPreparationResponse(ready=True)
 
 
@@ -168,7 +195,7 @@ def prepare(
 def resend(
     request: CorruptionResendRequest,
     user: CallbackUserDependency,
-    session: Session,
+    session: Session = Depends(yield_session),
 ) -> CorruptionResendResponse:
     """
     Actually send a new copy of a file that we know you already have! We assume that
@@ -202,7 +229,7 @@ def resend(
         session=session,
     )
 
-    from librarian_background.create_clone import send_file_batch
+    from librarian_background.send_clone import send_file_batch
 
     success = send_file_batch(files=[file], librarian=librarian, session=session)
 
@@ -211,14 +238,22 @@ def resend(
             "Successfully created send queue item to remedy corrupt data in {}",
             request.file_name,
         )
-        session.delete(remote_instances)
+        for ri in remote_instances:
+            session.delete(ri)
         session.commit()
+        return CorruptionResendResponse(
+            success=bool(success),
+            destination_transfer_id=success[0].destination_transfer_id,
+        )
     else:
         logger.info(
             "Error creating send queue item to remedy corrupt data in {}",
             request.file_name,
         )
-
-    return CorruptionResendResponse(
-        success=bool(success), destination_transfer_id=success[0]
-    )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=dict(
+                reason="Error creating send queue item",
+                suggested_remedy="Check the logs for more information",
+            ),
+        )

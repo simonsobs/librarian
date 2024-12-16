@@ -91,12 +91,7 @@ def test_server(tmp_path_factory):
             os.environ[env_var] = env_vars[env_var]
 
 
-@pytest.fixture(scope="package")
-def test_client(test_server):
-    """
-    Returns a test client for the server.
-    """
-
+def create_test_client(test_server, username="admin", password="password"):
     app, session, setup = test_server
 
     from fastapi.testclient import TestClient
@@ -109,7 +104,7 @@ def test_client(test_server):
         """
 
         if "auth" not in kwargs:
-            kwargs["auth"] = ("admin", "password")
+            kwargs["auth"] = (username, password)
 
         if "headers" not in kwargs:
             kwargs["headers"] = {"Content-Type": "application/json"}
@@ -122,13 +117,23 @@ def test_client(test_server):
 
     client.post_with_auth = client_post_with_auth
 
+    return client
+
+
+@pytest.fixture(scope="package")
+def test_client(test_server):
+    """
+    Returns a test client for the server.
+    """
+
+    client = create_test_client(test_server)
+
     yield client
 
     del client
 
 
-@pytest.fixture(scope="package")
-def mocked_admin_client(test_client):
+def make_mocked_admin_client(test_client, username="admin", password="password"):
     """
     Returns an instance of AdminClient that is actually mocked
     to use the test client.
@@ -137,8 +142,8 @@ def mocked_admin_client(test_client):
     client = AdminClient(
         host=str(test_client.base_url),
         port=80,
-        user="admin",
-        password="password",
+        user=username,
+        password=password,
     )
 
     # Now need to replace post
@@ -168,6 +173,18 @@ def mocked_admin_client(test_client):
         return r
 
     client.post = new_post
+
+    return client
+
+
+@pytest.fixture(scope="package")
+def mocked_admin_client(test_client):
+    """
+    Returns an instance of AdminClient that is actually mocked
+    to use the test client.
+    """
+
+    client = make_mocked_admin_client(test_client)
 
     yield client
 
