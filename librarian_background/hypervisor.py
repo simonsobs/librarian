@@ -91,7 +91,15 @@ def handle_stale_outgoing_transfer(
 
         return False
 
-    client = downstream_librarian.client()
+    try:
+        client = downstream_librarian.client()
+        client.ping()
+    except (LibrarianHTTPError, LibrarianTimeoutError) as e:
+        logger.info(
+            "Downstream librarian {} is unreachable, skipping for now",
+            downstream_librarian.name,
+        )
+        return False
 
     expected_file_name = transfer.file.name
     expected_file_checksum = transfer.file.checksum
@@ -204,7 +212,15 @@ def handle_stale_incoming_transfer(
 
     # We have an upstream librarian. We can ask it about the status of its
     # own OutgoingTransfer.
-    client = upstream_librarian.client()
+    try:
+        client = upstream_librarian.client()
+        client.ping()
+    except (LibrarianHTTPError, LibrarianTimeoutError) as e:
+        logger.info(
+            "Upstream librarian {} is unreachable, skipping for now",
+            upstream_librarian.name,
+        )
+        return False
 
     status_request = CheckinStatusRequest(
         source_transfer_ids=[transfer.source_transfer_id],
