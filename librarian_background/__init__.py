@@ -10,6 +10,8 @@ This module should be invoked as a separate process.
 
 import time
 
+from loguru import logger
+
 from .core import SafeScheduler
 from .settings import background_settings
 
@@ -33,6 +35,7 @@ def background(run_once: bool = False):
     )
 
     for task in all_tasks:
+        logger.debug("Scheduling background task: {}", task)
         scheduler.every(task.every.seconds).seconds.do(task.task)
 
     # ...and run it all on startup.
