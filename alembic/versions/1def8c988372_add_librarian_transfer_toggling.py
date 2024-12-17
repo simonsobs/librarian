@@ -41,6 +41,19 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
     )
 
+    # Check if role exists before granting SELECT permissions
+    if op.get_bind().engine.dialect.has_table(op.get_bind(), "pg_roles"):
+        op.execute(
+            """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'grafanausers') THEN
+                GRANT SELECT ON corrupt_files TO grafanausers;
+            END IF;
+        END $$;
+        """
+        )
+
     with op.batch_alter_table("outgoing_transfers") as batch_op:
         batch_op.alter_column("file_name", nullable=True)
 
