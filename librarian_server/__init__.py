@@ -44,6 +44,7 @@ def main() -> FastAPI:
         admin_router,
         checkin_router,
         clone_router,
+        corrupt_router,
         error_router,
         ping_router,
         search_router,
@@ -61,5 +62,6 @@ def main() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(checkin_router)
     app.include_router(validate_router)
+    app.include_router(corrupt_router)
 
     return app

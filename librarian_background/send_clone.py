@@ -449,6 +449,92 @@ def handle_existing_file(
         )
 
 
+def send_file_batch(
+    files: list[File],
+    librarian: Librarian,
+    session: Session,
+    store_preference: str | None = None,
+):
+    client = librarian.client()
+
+    outgoing_transfers, outgoing_information = process_batch(
+        files=files,
+        destination=librarian.name,
+        store_preference=store_preference,
+    )
+
+    session.add_all(outgoing_transfers)
+    session.commit()
+
+    response = use_batch_to_call_librarian(
+        outgoing_transfers=outgoing_transfers,
+        outgoing_information=outgoing_information,
+        client=client,
+        librarian=librarian,
+        session=session,
+    )
+
+    # We were unable to speak to the librarian, and have had our
+    # transfers cancelled for us. Time to move on to the next
+    # batch and hope for the best.
+
+    # Tested outside of the main loop.
+    if not response:  # pragma: no cover
+        return False
+
+    # Ok, they got out stuff. Need to do two things now:
+    # - Create the queue send item
+    # - Update the transfers with their information.
+
+    send, transfer_provider, transfer_map = create_send_queue_item(
+        response=response,
+        outgoing_transfers=outgoing_transfers,
+        librarian=librarian,
+        session=session,
+    )
+
+    # Send is falsey if there was a problem in creating the send
+    # queue item. In that, case we've failed everything, and should break
+    # and come back later.
+
+    # Tested outside of the main loop.
+    if not send:  # pragma: no cover
+        return False
+
+    # Now update the outgoing transfers with their information.
+    for transfer in outgoing_transfers:
+        remote_transfer_info: CloneBatchInitiationRequestFileItem = transfer_map.get(
+            transfer.id, None
+        )
+
+        if remote_transfer_info is None:  # pragma: no cover
+            # This is an unreachable state; we already purged these
+            # scenarios.
+            logger.error(
+                "Trying to set parameters of a transfer that should not exist; "
+                "this should be an unreachable state."
+            )
+            # In this case, the best thing that we can do is fail this individual
+            # transfer and pick it up later.
+            transfer.fail_transfer(session=session, commit=False)
+
+        transfer.remote_transfer_id = remote_transfer_info.destination_transfer_id
+        transfer.transfer_data = transfer_provider
+        transfer.send_queue = send
+        transfer.send_queue_id = send.id
+        transfer.source_path = str(transfer.instance.path)
+        transfer.dest_path = str(remote_transfer_info.staging_location)
+
+    session.commit()
+
+    # Finally, call up the destination again and tell them everything is on its
+    # way.
+
+    call_destination_and_state_ongoing(send=send, session=session)
+
+    return list(transfer_map.values())
+
+
 class SendClone(Task):
     """
     Launches clones of files to a remote librarian.
@@ -592,81 +678,14 @@ class SendClone(Task):
 
             files_tried += this_batch_size
 
-            outgoing_transfers, outgoing_information = process_batch(
+            success = send_file_batch(
                 files=files_to_try,
-                destination=self.destination_librarian,
+                librarian=librarian,
+                session=session,
                 store_preference=self.store_preference,
             )
 
-            session.add_all(outgoing_transfers)
-            session.commit()
-
-            response = use_batch_to_call_librarian(
-                outgoing_transfers=outgoing_transfers,
-                outgoing_information=outgoing_information,
-                client=client,
-                librarian=librarian,
-                session=session,
-            )
-
-            # We were unable to speak to the librarian, and have had our
-            # transfers cancelled for us. Time to move on to the next
-            # batch and hope for the best.
-
-            # Tested outside of the main loop.
-            if not response:  # pragma: no cover
-                continue
-
-            # Ok, they got out stuff. Need to do two things now:
-            # - Create the queue send item
-            # - Update the transfers with their information.
-
-            send, transfer_provider, transfer_map = create_send_queue_item(
-                response=response,
-                outgoing_transfers=outgoing_transfers,
-                librarian=librarian,
-                session=session,
-            )
-
-            # Send is falsey if there was a problem in creating the send
-            # queue item. In that, case we've failed everything, and should break
-            # and come back later.
-
-            # Tested outside of the main loop.
-            if not send:  # pragma: no cover
+            if not success:
                 break
-
-            # Now update the outgoing transfers with their information.
-            for transfer in outgoing_transfers:
-                remote_transfer_info: CloneBatchInitiationRequestFileItem = (
-                    transfer_map.get(transfer.id, None)
-                )
-
-                if remote_transfer_info is None:  # pragma: no cover
-                    # This is an unreachable state; we already purged these
-                    # scenarios.
-                    logger.error(
-                        "Trying to set parameters of a transfer that should not exist; "
-                        "this should be an unreachable state."
-                    )
-                    # In this case, the best thing that we can do is fail this individual
-                    # transfer and pick it up later.
-                    transfer.fail_transfer(session=session, commit=False)
-
-                transfer.remote_transfer_id = (
-                    remote_transfer_info.destination_transfer_id
-                )
-                transfer.transfer_data = transfer_provider
-                transfer.send_queue = send
-                transfer.send_queue_id = send.id
-                transfer.source_path = str(transfer.instance.path)
-                transfer.dest_path = str(remote_transfer_info.staging_location)
-
-            session.commit()
-
-            # Finally, call up the destination again and tell them everything is on its
-            # way.
-
-            call_destination_and_state_ongoing(send=send, session=session)
 
         return

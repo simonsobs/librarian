@@ -34,6 +34,8 @@ class Server(BaseModel):
     LIBRARIAN_BACKGROUND_CREATE_LOCAL_CLONE: str
     LIBRARIAN_BACKGROUND_SEND_CLONE: str
     LIBRARIAN_BACKGROUND_RECIEVE_CLONE: str
+    LIBRARIAN_BACKGROUND_CONSUME_QUEUE: str
+    LIBRARIAN_BACKGROUND_CHECK_CONSUMED_QUEUE: str
     process: str | None = None
 
     @property
@@ -56,6 +58,8 @@ class Server(BaseModel):
             "LIBRARIAN_BACKGROUND_CREATE_LOCAL_CLONE": self.LIBRARIAN_BACKGROUND_CREATE_LOCAL_CLONE,
             "LIBRARIAN_BACKGROUND_SEND_CLONE": self.LIBRARIAN_BACKGROUND_SEND_CLONE,
             "LIBRARIAN_BACKGROUND_RECIEVE_CLONE": self.LIBRARIAN_BACKGROUND_RECIEVE_CLONE,
+            "LIBRARIAN_BACKGROUND_CONSUME_QUEUE": self.LIBRARIAN_BACKGROUND_CONSUME_QUEUE,
+            "LIBRARIAN_BACKGROUND_CHECK_CONSUMED_QUEUE": self.LIBRARIAN_BACKGROUND_CHECK_CONSUMED_QUEUE,
         }
 
 
@@ -215,6 +219,24 @@ def server_setup(tmp_path_factory, name="librarian_server") -> Server:
         ]
     )
 
+    queue = json.dumps(
+        [
+            {
+                "task_name": "queue",
+                "every": "00:01:00",
+            }
+        ]
+    )
+
+    check_queue = json.dumps(
+        [
+            {
+                "task_name": "check_queue",
+                "every": "00:01:00",
+            }
+        ]
+    )
+
     return Server(
         id=server_id_and_port,
         base_path=tmp_path,
@@ -223,7 +245,7 @@ def server_setup(tmp_path_factory, name="librarian_server") -> Server:
         database=database,
         LIBRARIAN_SERVER_NAME=name,
         LIBRARIAN_SERVER_DISPLAYED_SITE_NAME=name.replace("_", " ").title(),
-        LIBRARIAN_SERVER_ENCRYPTION_KEY=Fernet.generate_key().decode(),
+        LIBRARIAN_SERVER_ENCRYPTION_KEY=str(Fernet.generate_key().decode()),
         LIBRARIAN_SERVER_MAXIMAL_UPLOAD_SIZE_BYTES=1_000_000,  # 1 MB for testing
         LIBRARIAN_CONFIG_PATH=librarian_config_path,
         LIBRARIAN_SERVER_DATABASE_DRIVER="sqlite",
@@ -233,6 +255,8 @@ def server_setup(tmp_path_factory, name="librarian_server") -> Server:
         LIBRARIAN_BACKGROUND_CHECK_INTEGRITY=check_integrity,
         LIBRARIAN_BACKGROUND_CREATE_LOCAL_CLONE=create_local_clone,
         LIBRARIAN_BACKGROUND_RECIEVE_CLONE=recv_clone,
+        LIBRARIAN_BACKGROUND_CONSUME_QUEUE=queue,
+        LIBRARIAN_BACKGROUND_CHECK_CONSUMED_QUEUE=check_queue,
         LIBRARIAN_BACKGROUND_SEND_CLONE="[]",
     )
 

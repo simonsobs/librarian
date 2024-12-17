@@ -29,6 +29,7 @@ def background(run_once: bool = False):
         + background_settings.incoming_transfer_hypervisor
         + background_settings.duplicate_remote_instance_hypervisor
         + background_settings.rolling_deletion
+        + background_settings.corruption_fixer
     )
 
     for task in all_tasks:

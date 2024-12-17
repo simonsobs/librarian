@@ -135,8 +135,8 @@ class RemoteInstance(db.Base):
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True, unique=True)
     "The unique ID of this instance."
-    file_name = db.Column(db.String(256), db.ForeignKey("files.name"), nullable=False)
-    "Name of the file this instance references."
+    file_name = db.Column(db.String(256), db.ForeignKey("files.name"), nullable=True)
+    "Name of the file this instance references; note this is NOT a foreign key"
     file = db.relationship(
         "File",
         back_populates="remote_instances",
