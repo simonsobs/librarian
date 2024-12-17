@@ -36,7 +36,7 @@ def background(run_once: bool = False):
 
     for task in all_tasks:
         logger.debug("Scheduling background task: {}", task)
-        scheduler.every(task.every.seconds).seconds.do(task.task)
+        scheduler.every(task.every.total_seconds()).seconds.do(task.task)
 
     logger.debug("Running all tasks on startup.")
     # ...and run it all on startup.
