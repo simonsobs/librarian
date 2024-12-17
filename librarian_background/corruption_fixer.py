@@ -23,6 +23,7 @@ from librarian_server.orm.file import CorruptFile, File
 from librarian_server.orm.instance import Instance
 from librarian_server.orm.librarian import Librarian
 from librarian_server.orm.transfer import IncomingTransfer
+from librarian_server.settings import server_settings
 
 from .task import Task
 
@@ -153,7 +154,7 @@ class CorruptionFixer(Task):
                 continue
 
             prepare_request = CorruptionPreparationRequest(
-                file_name=corrupt.file_name, librarian_name=result.name
+                file_name=corrupt.file_name, librarian_name=server_settings.name
             )
 
             try:
@@ -182,7 +183,7 @@ class CorruptionFixer(Task):
 
             resend_request = CorruptionResendRequest(
                 file_name=corrupt.file_name,
-                librarian_name=result.name,
+                librarian_name=server_settings.name,
             )
 
             try:
