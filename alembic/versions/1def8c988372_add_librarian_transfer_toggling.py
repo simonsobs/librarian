@@ -22,7 +22,7 @@ depends_on = None
 def upgrade():
     with op.batch_alter_table("librarians") as batch_op:
         batch_op.add_column(
-            sa.Column("transfers_enabled", sa.Boolean(), nullable=False, default=True)
+            sa.Column("transfers_enabled", sa.Boolean(), nullable=True, default=True)
         )
 
     op.create_table(
