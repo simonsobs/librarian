@@ -14,7 +14,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from hera_librarian.errors import ErrorCategory, ErrorSeverity
-from hera_librarian.exceptions import LibrarianError, LibrarianHTTPError
+from hera_librarian.exceptions import (
+    LibrarianError,
+    LibrarianHTTPError,
+    LibrarianTimeoutError,
+)
 from hera_librarian.models.validate import (
     FileValidationFailedResponse,
     FileValidationRequest,
@@ -82,6 +86,11 @@ def calculate_checksum_of_remote_copies(
     start = perf_counter()
     try:
         client = librarian.client()
+    except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError) as e:
+        log.error(f"Unable to contact downstream librarian {librarian.name}")
+        return []
+
+    try:
         responses = client.validate_file(file_name)
         end = perf_counter()
 
