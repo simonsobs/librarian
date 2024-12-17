@@ -38,8 +38,10 @@ def background(run_once: bool = False):
         logger.debug("Scheduling background task: {}", task)
         scheduler.every(task.every.seconds).seconds.do(task.task)
 
+    logger.debug("Running all tasks on startup.")
     # ...and run it all on startup.
     scheduler.run_all()
+    logger.debug("All tasks run on startup.")
 
     # ...begin scheduling operations.
     while not run_once:
