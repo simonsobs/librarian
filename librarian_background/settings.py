@@ -20,6 +20,7 @@ from librarian_background.hypervisor import (
 from librarian_background.rolling_deletion import RollingDeletion
 
 from .check_integrity import CheckIntegrity
+from .corruption_fixer import CorruptionFixer
 from .create_clone import CreateLocalClone
 from .queues import CheckConsumedQueue, ConsumeQueue, TransferStatus
 from .recieve_clone import RecieveClone
@@ -255,6 +256,19 @@ class RollingDeletionSettings(BackgroundTaskSettings):
         )
 
 
+class CorruptionFixerSettings(BackgroundTaskSettings):
+    """
+    Settings for the corruption fixer task.
+    """
+
+    @property
+    def task(self) -> CorruptionFixer:
+        return CorruptionFixer(
+            name=self.task_name,
+            soft_timeout=self.soft_timeout,
+        )
+
+
 class BackgroundSettings(BaseSettings):
     """
     Background task settings, configurable.
@@ -287,6 +301,8 @@ class BackgroundSettings(BaseSettings):
     ] = []
 
     rolling_deletion: list[RollingDeletionSettings] = []
+
+    corruption_fixer: list[CorruptionFixerSettings] = []
 
     # Global settings:
 

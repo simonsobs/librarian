@@ -122,6 +122,26 @@ The following background tasks are available:
   This task is configured with the following additional parameters:
   
   * ``age_in_days``: The number of days back to check for files to transfer (integer).
+- ``duplicate_remote_instance_hypervisor``: A hypervisor that looks for duplicate remote
+  instance rows int he table and removes one. This ensures database integrity and that
+  the count of remote instances per librarian and store corresponds to the number of files
+  on that librarian.
+- ``rolling_deletion``: A task to delete data that was ingested into the librarian
+  more than ``age_in_days`` ago. Note that this does not delete them from the entire network,
+  and has specific tools to ensure other copies exist in the network elsewhere:
+
+  * ``store_name``: The store to delete instances from
+  * ``age_in_days``: The number of days old data needs to be to be considered for deletion
+  * ``number_of_remote_copies``: The number of copies in the rest of the network (which are
+    validated using checksumming) that must be kept before deleting a local instance.
+  * ``verifiy_downstream_checksums``: Whether to make sure all downstream checksums that were
+    computed on request match the underlying data before deletion (True).
+  * ``mark_unavailable``: Whether to mark instances as unavailable (True) or actually remove the
+    rows in the table (False). Default True.
+  * ``force_deletion``: Whether to ignore the legacy DeletionPolicy parameter (True).
+- ``corruption_fixer``: A task that reaches out to upstream librarians to ask for new copies of
+  corrupt files in the table. These corrupt files can be found by the ``check_integrity`` task
+  or when upstreams validate files during the deletion process.
 
 
 Background Task Configuration Examples
@@ -198,6 +218,22 @@ store. The destination librarian is called ``destination``.
         "every": "01:00:00",
         "age_in_days": 2
       }
+    ],
+    "duplicate_remote_instance_hypervisor": [
+      {
+        "task_name": "Duplicate RI hypervisor",
+        "soft_timeout": "00:30:00",
+        "every": "24:00:00"
+      }
+    ],
+    "rolling_deletion": [
+      {
+        "task_name": "Storage Recovery",
+        "soft_timeout": "00:30:00",
+        "every": "24:00:00",
+        "store_name": "store",
+        "number_of_remote_copies": 2
+      }
     ]
   }
     
@@ -228,6 +264,13 @@ deleted from the store.
         "soft_timeout": "00:30:00",
         "every": "01:00:00",
         "age_in_days": 2
+      }
+    ],
+    "corruption_fixer": [
+      {
+        "task_name": "Corruption fixer",
+        "soft_timeout": "00:30:00",
+        "every": "24:00:00"
       }
     ]
   }
