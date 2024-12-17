@@ -179,7 +179,7 @@ class CorruptionFixer(Task):
             # This also deletes remote instances which will need to be repaired. However
             # it is unlikely that we will be in that situation. Unfortunately we _must_ commit
             # this as the files table must be accessed from a different table.
-            corrupt.file.delete(session=session, commit=True, force=True)
+            potential_file.delete(session=session, commit=True, force=True)
 
             resend_request = CorruptionResendRequest(
                 file_name=corrupt.file_name,
