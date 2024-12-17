@@ -41,6 +41,19 @@ def user_and_librarian_validation_flow(
 
     librarian_exists = librarian is not None
 
+    if not librarian_exists:
+        logger.warning(
+            "Librarian {} does not exist, cannot authenticate remedy request",
+            librarian_name,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=dict(
+                reason="Unauthorized",
+                suggested_remedy="",
+            ),
+        )
+
     stmt = select(RemoteInstance).filter_by(
         file_name=file_name, librarian_id=librarian.id
     )
