@@ -115,7 +115,7 @@ class CorruptionFixer(Task):
 
             # Remedy B: the origin of this file is another librarian. Ask for a new copy.
             stmt = select(Librarian).filter_by(name=corrupt.file_source)
-            result = session.execute(stmt).scalar_one_or_none()
+            result: Librarian | None = session.execute(stmt).scalar_one_or_none()
 
             if result is None:
                 logger.error(
@@ -129,7 +129,6 @@ class CorruptionFixer(Task):
                 continue
 
             # Use the librarian to ask for a new copy.
-            result: Librarian
             client = result.client()
 
             try:
@@ -187,12 +186,13 @@ class CorruptionFixer(Task):
             except (LibrarianError, LibrarianHTTPError):
                 logger.error(
                     "Failed during the resend request flow for librarian {lib}, "
-                    "corrupt {id} for file {name} with {e}",
+                    "corrupt {id} for file {name} with {e}; we have deleted data and rows",
                     lib=result.name,
                     id=corrupt.id,
                     name=corrupt.file_name,
                     e=e,
                 )
+                # Can't rollback anything here so there's no point
                 continue
 
             corrupt.incoming_transfer_id = resend_response.destination_transfer_id
