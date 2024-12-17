@@ -2,6 +2,7 @@
 A background task that queries the corrupt files table and remedies them.
 """
 
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 
 from loguru import logger
@@ -36,6 +37,9 @@ class CorruptionFixer(Task):
             return self.core(session=session)
 
     def core(self, session: Session) -> bool:
+        start_time = datetime.now(timezone.utc)
+        end_time = start_time + self.soft_timeout
+
         query_start = perf_counter()
 
         stmt = (
@@ -55,6 +59,13 @@ class CorruptionFixer(Task):
         )
 
         for corrupt in results:
+            if datetime.now(timezone.utc) > end_time:
+                logger.warning(
+                    "Soft timeout reached for CorruptionFixer; stopping at {time}",
+                    time=datetime.now(timezone.utc),
+                )
+                return False
+
             logger.info(
                 "Attempting to fix {id} ({name})", id=corrupt.id, name=corrupt.file_name
             )
