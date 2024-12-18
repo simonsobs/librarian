@@ -31,6 +31,7 @@ def server(xprocess, tmp_path_factory, request) -> Server:
         pattern = "Uvicorn running on"
         args = [sys.executable, shutil.which("librarian-server-start"), "--setup"]
         timeout = 10
+        max_read_lines = 100
         env = setup.env
 
     for label, key in setup.env.items():

@@ -15,7 +15,6 @@ from pathlib import Path
 
 # Do this in if __name__ == "__main__" so we can spawn threads on MacOS...
 
-
 parser = ap.ArgumentParser(
     description=(
         "Librarian server start. Used to start both the server and "
