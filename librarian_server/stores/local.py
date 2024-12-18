@@ -230,7 +230,18 @@ class LocalStore(CoreStore):
                 copy_success = compare_checksums(original_checksum, new_checksum)
                 retries += 1
 
-            if not copy_success:
+            if copy_success:
+                # We need to clean up the files we just copied from; this is a 'move'
+                # operation!
+                try:
+                    os.rmdir(resolved_path_staging)
+                except NotADirectoryError:
+                    # It's not a directory. Delete it.
+                    os.remove(resolved_path_staging)
+                except OSError:
+                    # Directory is not empty. Delete it and all its contents.
+                    shutil.rmtree(resolved_path_staging)
+            else:
                 # We need to clean up
                 self.delete(store_path)
 
