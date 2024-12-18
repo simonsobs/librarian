@@ -6,6 +6,8 @@ import hashlib
 import os
 import os.path
 import re
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 
 import xxhash
@@ -33,7 +35,7 @@ def dirhash(
     ignore_hidden=False,
     followlinks=False,
     excluded_extensions=None,
-    include_paths=False,
+    threads=2,
 ):
     hash_func = HASH_FUNCS.get(hashfunc)
     if not hash_func:
@@ -56,27 +58,40 @@ def dirhash(
         dirs.sort()
         files.sort()
 
-        for fname in files:
-            if ignore_hidden and fname.startswith("."):
-                continue
+        core = partial(
+            individual,
+            root=root,
+            ignore_hidden=ignore_hidden,
+            excluded_extensions=excluded_extensions,
+            excluded_files=excluded_files,
+            hashfunc=hashfunc,
+        )
 
-            if fname.split(".")[-1:][0] in excluded_extensions:
-                continue
+        if threads > 1:
+            with Pool(threads) as p:
+                hashvalues.extend(p.map(core, files))
+        else:
+            for fname in files:
+                hashvalues.append(core(fname))
 
-            if fname in excluded_files:
-                continue
+    return _reduce_hash(filter(lambda x: x is not None, hashvalues), hash_func)
 
-            hashvalues.append(_filehash(os.path.join(root, fname), hash_func))
 
-            if include_paths:
-                hasher = hash_func()
-                # get the resulting relative path into array of elements
-                path_list = os.path.relpath(os.path.join(root, fname)).split(os.sep)
-                # compute the hash on joined list, removes all os specific separators
-                hasher.update("".join(path_list).encode("utf-8"))
-                hashvalues.append(hasher.hexdigest())
+def individual(
+    fname, root, ignore_hidden, excluded_extensions, excluded_files, hashfunc
+):
+    if ignore_hidden and fname.startswith("."):
+        return None
 
-    return _reduce_hash(hashvalues, hash_func)
+    if fname.split(".")[-1:][0] in excluded_extensions:
+        return None
+
+    if fname in excluded_files:
+        return None
+
+    hash_func = HASH_FUNCS.get(hashfunc)
+
+    return _filehash(os.path.join(root, fname), hash_func)
 
 
 def _filehash(filepath, hashfunc):
@@ -130,7 +145,9 @@ def get_md5_from_path(path):
         return _filehash(path, HASH_FUNCS["md5"])
 
 
-def get_checksum_from_path(path: str | Path, hash_function: str = "xxh3") -> str:
+def get_checksum_from_path(
+    path: str | Path, hash_function: str = "xxh3", threads: int = 1
+) -> str:
     """
     Compute the checksum of a file from a path. This allows you to select
     the underlying checksum function, which is by default the very fast
@@ -141,7 +158,7 @@ def get_checksum_from_path(path: str | Path, hash_function: str = "xxh3") -> str
     path = Path(path).resolve()
 
     if path.is_dir():
-        return hash_function + ":::" + dirhash(path, hash_function)
+        return hash_function + ":::" + dirhash(path, hash_function, threads=threads)
     else:
         # Just a single file. That's fine!
         return hash_function + ":::" + _filehash(path, HASH_FUNCS[hash_function])

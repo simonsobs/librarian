@@ -177,6 +177,9 @@ class ServerSettings(BaseSettings):
     globus_client_secret: Optional[str] = None
     globus_client_secret_file: Optional[Path] = None
 
+    # Checksumming options
+    checksum_threads: int = 4
+
     model_config = SettingsConfigDict(env_prefix="librarian_server_")
 
     def model_post_init(__context, *args, **kwargs):

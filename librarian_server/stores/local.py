@@ -190,6 +190,9 @@ class LocalStore(CoreStore):
         return
 
     def commit(self, staging_path: Path, store_path: Path):
+        # Must import after initialization, unfortunately.
+        from librarian_server.settings import server_settings
+
         need_ownership_changes = self.own_after_commit or self.readonly_after_commit
 
         resolved_path_staging = self._resolved_path_staging(staging_path)
@@ -210,7 +213,9 @@ class LocalStore(CoreStore):
             retries = 0
             copy_success = False
 
-            original_checksum = get_checksum_from_path(resolved_path_staging)
+            original_checksum = get_checksum_from_path(
+                resolved_path_staging, threads=server_settings.checksum_threads
+            )
 
             while not copy_success and retries < self.max_copy_retries:
                 if resolved_path_staging.is_dir():
@@ -218,7 +223,9 @@ class LocalStore(CoreStore):
                 else:
                     shutil.copy2(resolved_path_staging, resolved_path_store)
 
-                new_checksum = get_checksum_from_path(resolved_path_store)
+                new_checksum = get_checksum_from_path(
+                    resolved_path_store, threads=server_settings.checksum_threads
+                )
 
                 copy_success = compare_checksums(original_checksum, new_checksum)
                 retries += 1
@@ -289,6 +296,9 @@ class LocalStore(CoreStore):
         return resolved_path
 
     def path_info(self, path: Path, hash_function: str = "xxh3") -> PathInfo:
+        # Must import after initialization, unfortunately.
+        from librarian_server.settings import server_settings
+
         # Promote path to object if required
         path = Path(path)
 
@@ -299,7 +309,11 @@ class LocalStore(CoreStore):
             # Use the old functions for consistency.
             path=path,
             filetype=get_type_from_path(str(path)),
-            checksum=get_checksum_from_path(path, hash_function=hash_function),
+            checksum=get_checksum_from_path(
+                path,
+                hash_function=hash_function,
+                threads=server_settings.checksum_threads,
+            ),
             size=get_size_from_path(path),
         )
 
