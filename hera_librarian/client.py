@@ -399,7 +399,7 @@ class LibrarianClient:
             endpoint="upload/stage",
             request=UploadInitiationRequest(
                 upload_size=get_size_from_path(local_path),
-                upload_checksum=get_checksum_from_path(local_path),
+                upload_checksum=get_checksum_from_path(local_path, threads=1),
                 upload_name=dest_path.name,
                 destination_location=dest_path,
                 uploader=self.user,
