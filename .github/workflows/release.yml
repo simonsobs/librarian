@@ -4,14 +4,7 @@ on:
     types: [published]
 
 jobs:
-  independent-job:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Perform independent task
-        run: echo "This job runs independently of other jobs."
   release-job:
-    needs: ["Formatting", "Tests"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,5 +17,5 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           file: ./Dockerfile
-          push: false
+          push: true
           tags: simonsobs/librarian:${{ github.event.release.tag_name }}
