@@ -207,7 +207,7 @@ async def validate_file(
             # it first.
             query = select(CorruptFile).filter(CorruptFile.file_name == file.name)
 
-            corrupt_file = session.execute(query).one_or_none()
+            corrupt_file = session.execute(query).scalar_one_or_none()
 
             if corrupt_file is not None:
                 corrupt_file.corrupt_count += 1
