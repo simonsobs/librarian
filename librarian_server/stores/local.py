@@ -134,7 +134,7 @@ class LocalStore(CoreStore):
                 os.remove(complete_path)
             except OSError:
                 # Directory is not empty. Delete it and all its contents.
-                logger.warning(
+                logger.info(
                     f"Directory {complete_path} is not empty. Deleting all contents"
                 )
                 shutil.rmtree(complete_path)
@@ -168,9 +168,9 @@ class LocalStore(CoreStore):
             except OSError:
                 # Directory is not empty. Delete it and all its contents.
                 # Commenting out: currently not a warning
-                # logger.warning(
-                #     f"Directory {complete_path} is not empty. Deleting all contents"
-                # )
+                logger.info(
+                    f"Directory {complete_path} is not empty. Deleting all contents"
+                )
                 shutil.rmtree(complete_path)
 
         # Check if the parent is empty. We don't want to leave dregs!
