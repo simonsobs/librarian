@@ -243,7 +243,7 @@ class LocalStore(CoreStore):
             #     except OSError:
             #         # Directory is not empty. Delete it and all its contents.
             #         shutil.rmtree(resolved_path_staging)
-            else:
+            if not copy_success:
                 # We need to clean up
                 self.delete(store_path)
 
