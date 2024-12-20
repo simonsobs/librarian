@@ -202,13 +202,13 @@ async def validate_file(
     checksum_info = [item for sublist in checksum_info for item in sublist]
 
     for info in checksum_info:
+        if info.librarian == server_settings.name:
+            query = select(CorruptFile).filter(CorruptFile.file_name == file.name)
+            corrupt_file = session.execute(query).scalar_one_or_none()
+
         if not info.computed_same_checksum and info.librarian == server_settings.name:
             # Add the corrupt file to the database, though check if we already have
             # it first.
-            query = select(CorruptFile).filter(CorruptFile.file_name == file.name)
-
-            corrupt_file = session.execute(query).scalar_one_or_none()
-
             if corrupt_file is not None:
                 corrupt_file.corrupt_count += 1
                 session.commit()
@@ -225,6 +225,20 @@ async def validate_file(
             log.error(
                 "File validation failed, the checksums do not match for file "
                 "{} in store {}. CorruptFile: {}",
+                request.file_name,
+                info.store,
+                corrupt_file.id,
+            )
+        elif info.librarian == server_settings.name:
+            # Ok, we've got a corrupt file, but our file is fine!
+            # We can delete the corrupt file.
+            if corrupt_file is not None:
+                session.delete(corrupt_file)
+                session.commit()
+
+            log.warning(
+                "File validation succeeded, the checksums match for file {} in store {} "
+                "and corrupt file {} row has been removed",
                 request.file_name,
                 info.store,
                 corrupt_file.id,
