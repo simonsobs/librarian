@@ -80,6 +80,15 @@ class CorruptionFixer(Task):
             stmt = select(Instance).filter_by(id=corrupt.instance_id)
             potential_instance = session.execute(stmt).scalar_one_or_none()
 
+            # Most likely scenario here is that the file was deleted and fixed
+            # outside of this loop. Try its first instance and see if it is correct
+            # then we're good to go.
+            if potential_instance is None and potential_file is not None:
+                try:
+                    potential_instance = potential_file.instances[0]
+                except IndexError:
+                    potential_instance = None
+
             # Step A: Check that the file is actually corrupt
             try:
                 hash_function = get_hash_function_from_hash(potential_file.checksum)
