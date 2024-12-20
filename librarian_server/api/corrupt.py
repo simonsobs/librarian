@@ -62,8 +62,8 @@ def user_and_librarian_validation_flow(
     remote_instance_registered_at_destination = bool(remote_instances)
 
     if not (
-        remote_instance_registered_at_destination
-        and user_is_librarian
+        # remote_instance_registered_at_destination
+        user_is_librarian
         and librarian_exists
     ):
         logger.debug(
