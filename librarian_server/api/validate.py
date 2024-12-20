@@ -210,7 +210,7 @@ async def validate_file(
             corrupt_file = session.execute(query).one_or_none()
 
             if corrupt_file is not None:
-                corrupt_file.count += 1
+                corrupt_file.corrupt_count += 1
                 session.commit()
                 continue
             else:

@@ -126,7 +126,7 @@ class CheckIntegrity(Task):
                     session.add(corrupt_file)
                     session.commit()
                 else:
-                    corrupt_file.count += 1
+                    corrupt_file.corrupt_count += 1
                     session.commit()
 
                 logger.error(

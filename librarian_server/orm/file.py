@@ -176,8 +176,8 @@ class CorruptFile(db.Base):
     "The size of the file in bytes."
     checksum: str = db.Column(db.String(256))
     "The checksum of the file that was re-computed and found to be incorrect."
-    count: int = db.Column(db.Integer)
-    "The number of times this file has been marked as corrupt."
+    corrupt_count: int = db.Column("count", db.Integer)
+    "The number of times this file has been marked as corrupt. Named differently as count is sqlalchemy reserved word."
 
     replacement_requested: bool = db.Column(db.Boolean, default=False)
     "Whether or not a replacement has been requested for this file."
@@ -214,5 +214,5 @@ class CorruptFile(db.Base):
             corrupt_time=datetime.now(timezone.utc),
             size=size,
             checksum=checksum,
-            count=1,
+            corrupt_count=1,
         )
