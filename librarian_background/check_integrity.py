@@ -66,7 +66,7 @@ class CheckIntegrity(Task):
         query_start = time.perf_counter()
         files = (
             session.query(Instance)
-            .filter(Instance.store == store and Instance.created_time > start_time)
+            .filter(Instance.store == store, Instance.created_time > start_time)
             .all()
         )
         query_end = time.perf_counter()
