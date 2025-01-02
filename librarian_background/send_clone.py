@@ -6,7 +6,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from schedule import CancelJob
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 from hera_librarian.client import LibrarianClient
 from hera_librarian.exceptions import (
@@ -598,27 +598,52 @@ class SendClone(Task):
         age_in_days = datetime.timedelta(days=self.age_in_days)
         oldest_file_age = current_time - age_in_days
 
-        file_stmt = select(File).filter(File.create_time > oldest_file_age)
-        remote_instances_stmt = select(RemoteInstance.file_name).filter(
-            RemoteInstance.librarian_id == librarian.id
-        )
-        outgoing_transfer_stmt = (
-            select(OutgoingTransfer.file_name)
-            .filter(OutgoingTransfer.destination == librarian.name)
-            .filter(
-                OutgoingTransfer.status.in_(
-                    [
-                        TransferStatus.INITIATED,
-                        TransferStatus.ONGOING,
-                        TransferStatus.STAGED,
-                    ]
-                )
+        # Use a single query to get all files that are not in the remote instance or
+        # outgoing transfers tables. This will significantly improve performance.
+        # SELECT f.*
+        # FROM files f
+        # LEFT JOIN remote_instances ri
+        #     ON f.name = ri.file_name AND ri.librarian_id = 2
+        # LEFT JOIN outgoing_transfers ot
+        #     ON f.name = ot.file_name
+        #     AND ot.destination = 'nersc_librarian'
+        #     AND ot.status IN ('INITIATED', 'ONGOING', 'STAGED')
+        # WHERE ri.file_name IS NULL
+        # AND ot.file_name IS NULL;
+
+        file_stmt = (
+            select(File)
+            .join(
+                RemoteInstance,
+                and_(
+                    File.name == RemoteInstance.file_name,
+                    RemoteInstance.librarian_id == librarian.id,
+                ),
+                isouter=True,
+            )
+            .join(
+                OutgoingTransfer,
+                and_(
+                    File.name == OutgoingTransfer.file_name,
+                    OutgoingTransfer.destination == librarian.name,
+                    OutgoingTransfer.status.in_(
+                        [
+                            TransferStatus.INITIATED,
+                            TransferStatus.ONGOING,
+                            TransferStatus.STAGED,
+                        ]
+                    ),
+                ),
+                isouter=True,
+            )
+            .where(
+                File.create_time > oldest_file_age,
+                RemoteInstance.file_name
+                == None,  # Ok, only grab the files that don't exist already
+                OutgoingTransfer.file_name
+                == None,  # Ok, only grab files that don't have an outgoing transfer.
             )
         )
-
-        file_stmt = file_stmt.where(File.name.not_in(remote_instances_stmt))
-
-        file_stmt = file_stmt.where(File.name.not_in(outgoing_transfer_stmt))
 
         files_without_remote_instances: list[File] = (
             session.execute(file_stmt).scalars().all()
