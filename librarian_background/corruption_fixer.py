@@ -205,7 +205,7 @@ class CorruptionFixer(Task):
 
                 if not resend_response.success:
                     raise ValueError("Failure during resend")
-            except (LibrarianError, LibrarianHTTPError):
+            except (LibrarianError, LibrarianHTTPError) as e:
                 logger.error(
                     "Failed during the resend request flow for librarian {lib}, "
                     "corrupt {id} for file {name} with {e}; we have deleted data and rows",
