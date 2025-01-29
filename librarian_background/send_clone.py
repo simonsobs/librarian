@@ -550,6 +550,7 @@ class SendClone(Task):
     store_preference: Optional[str]
     "Name of the store to prefer when sending files. If None, we will use whatever store is available for sending that file."
     send_batch_size: int = 128
+    _skip_timer: datetime.datetime = datetime.datetime.min
 
     def on_call(self):  # pragma: no cover
         with get_session() as session:
@@ -574,7 +575,11 @@ class SendClone(Task):
             )
             return CancelJob
 
-        if not librarian.transfers_enabled:
+        current_time = datetime.datetime.now(datetime.timezone.utc)
+        if not librarian.transfers_enabled and (
+            current_time - self._skip_timer
+        ) > datetime.timedelta(days=1):
+            self._skip_timer = current_time
             logger.warning(
                 f"Transfers to librarian {librarian.name} are temporarily disabled, skipping."
             )
@@ -594,7 +599,6 @@ class SendClone(Task):
             return
 
         query_start = time.perf_counter()
-        current_time = datetime.datetime.now(datetime.timezone.utc)
         age_in_days = datetime.timedelta(days=self.age_in_days)
         oldest_file_age = current_time - age_in_days
 
