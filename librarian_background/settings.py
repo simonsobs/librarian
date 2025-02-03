@@ -123,7 +123,7 @@ class SendCloneSettings(BackgroundTaskSettings):
     "The number of files to send per batch."
 
     warn_disabled_timer: Optional[int]
-    "The number of files to send per batch."
+    "The number of days to wait before warning about a disabled store."
 
     @property
     def task(self) -> SendClone:
