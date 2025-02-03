@@ -6,7 +6,7 @@ import abc
 import datetime
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydantic import BaseModel, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -122,6 +122,9 @@ class SendCloneSettings(BackgroundTaskSettings):
     send_batch_size: int = 128
     "The number of files to send per batch."
 
+    warn_disabled_timer: Optional[int]
+    "The number of files to send per batch."
+
     @property
     def task(self) -> SendClone:
         return SendClone(
@@ -130,6 +133,7 @@ class SendCloneSettings(BackgroundTaskSettings):
             age_in_days=self.age_in_days,
             store_preference=self.store_preference,
             send_batch_size=self.send_batch_size,
+            warn_disabled_timer=self.warn_disabled_timer,
         )
 
 
