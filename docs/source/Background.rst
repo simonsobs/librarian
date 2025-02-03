@@ -95,6 +95,8 @@ The following background tasks are available:
     useful in the case where you have SneakerNet drives attached, as it will prefer
     the main store instead of the SneakerNet drives for copies.
   * ``send_batch_size``: The sizes of file batches to send (interger).
+  * ``warn_disabled_timer``: The number of days to wait before warning about a disabled
+    store (integer).
 - ``receive_clone``: Receive a clone of the files in the librarian from a source librarian.
   This ingests copies of files from the staging area to the store area.
   This task is configured with the following additional parameters:
