@@ -30,6 +30,13 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
     transfer_complete: bool = False
     task_id: str = ""
 
+    @staticmethod
+    def _subtract_local_root(path: Path, settings: "ServerSettings") -> Path:
+        """
+        This is a helper function to finalize the remote path for a transfer.
+        """
+        return path.relative_to(settings.globus_local_root)
+
     def authorize(self, settings: "ServerSettings"):
         """
         Attempt to authorize using the Globus service.
@@ -192,6 +199,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         # We need to figure out if the local path is actually a directory or a
         # flat file, which annoyingly requires different handling as part of the
         # Globus transfer.
+        local_path = self._subtract_local_root(local_path, settings)
         transfer_data.add_item(
             str(local_path), str(remote_path), recursive=local_path.is_dir()
         )
@@ -260,6 +268,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             # We need to figure out if the local path is actually a directory or a
             # flat file, which annoyingly requires different handling as part of the
             # Globus transfer.
+            local_path = self._subtract_local_root(local_path, settings)
             transfer_data.add_item(
                 str(local_path), str(remote_path), recursive=local_path.is_dir()
             )
