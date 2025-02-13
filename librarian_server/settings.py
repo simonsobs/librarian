@@ -125,6 +125,7 @@ class ServerSettings(BaseSettings):
     database_host: Optional[str] = None
     database_port: Optional[int] = None
     database: Optional[str] = None
+    database_driver_async: str = "aiosqlite"
 
     database_password_file: Optional[Path] = None
 
@@ -222,6 +223,21 @@ class ServerSettings(BaseSettings):
 
         with open(config_path, "r") as handle:
             return cls.model_validate_json(handle.read())
+
+    @property
+    def sqlalchemy_async_database_uri(self) -> str:
+        """
+        The SQLAlchemy database URI.
+        """
+
+        return URL.create(
+            self.database_driver_async,
+            username=self.database_user,
+            password=self.database_password,
+            host=self.database_host,
+            port=self.database_port,
+            database=self.database,
+        )
 
 
 # Automatically create a variable, server_settings, from the environment variable
