@@ -28,7 +28,7 @@ def remove_readonly(func, path, _):
     Clear the readonly bit and reattempt the removal, see
     https://docs.python.org/3/library/shutil.html#rmtree-example
     """
-    os.chmod(path, stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.IWGRP)
+    os.chmod(path, stat.S_IREAD | stat.S_IWRITE | stat.S_IRGRP | stat.S_IWGRP)
     func(path)
 
 
