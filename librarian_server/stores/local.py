@@ -23,6 +23,15 @@ from .core import CoreStore
 from .pathinfo import PathInfo
 
 
+def remove_readonly(func, path, _):
+    """
+    Clear the readonly bit and reattempt the removal, see
+    https://docs.python.org/3/library/shutil.html#rmtree-example
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
 class LocalStore(CoreStore):
     staging_path: Path
     store_path: Path
@@ -171,7 +180,7 @@ class LocalStore(CoreStore):
                 logger.info(
                     f"Directory {complete_path} is not empty. Deleting all contents"
                 )
-                shutil.rmtree(complete_path)
+                shutil.rmtree(complete_path, onexc=remove_readonly)
 
         # Check if the parent is empty. We don't want to leave dregs!
         if os.path.exists(complete_path.parent):
