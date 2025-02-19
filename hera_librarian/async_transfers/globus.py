@@ -35,7 +35,10 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         """
         This is a helper function to finalize the remote path for a transfer.
         """
-        return path.relative_to(settings.globus_local_root)
+        if settings.globus_local_root is None:
+            return path
+        else:
+            return path.relative_to(settings.globus_local_root)
 
     def authorize(self, settings: "ServerSettings"):
         """
