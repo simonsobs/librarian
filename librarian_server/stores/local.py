@@ -180,7 +180,7 @@ class LocalStore(CoreStore):
                 logger.info(
                     f"Directory {complete_path} is not empty. Deleting all contents"
                 )
-                shutil.rmtree(complete_path, onexc=remove_readonly)
+                shutil.rmtree(complete_path, onerror=remove_readonly)
 
         # Check if the parent is empty. We don't want to leave dregs!
         if os.path.exists(complete_path.parent):
