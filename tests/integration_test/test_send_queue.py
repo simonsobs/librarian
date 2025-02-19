@@ -371,6 +371,10 @@ def test_send_from_existing_file_row(
     # Should have _ours_ and _theirs_.
     assert len(instance_validations) == 2
 
+    # Check again (should use the cache)!
+    instance_validations = mocked_admin_client.validate_file(file_name=file_name)
+    assert len(instance_validations) == 2
+
     source_librarians_for_validations = {x.librarian for x in instance_validations}
 
     assert len(source_librarians_for_validations) == 2  # I.e. they are different
