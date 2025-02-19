@@ -5,6 +5,7 @@ remote instances too.
 """
 
 import asyncio
+from functools import lru_cache
 from pathlib import Path
 from time import perf_counter
 
@@ -38,6 +39,7 @@ from .auth import ReadonlyUserDependency
 router = APIRouter(prefix="/api/v2/validate")
 
 
+@lru_cache(maxsize=1024)
 def calculate_checksum_of_local_copy(
     original_checksum: str,
     original_size: int,
