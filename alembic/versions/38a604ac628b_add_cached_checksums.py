@@ -23,7 +23,9 @@ def upgrade():
         batch_op.add_column(
             sa.Column("calculated_checksum", sa.String(), nullable=True)
         )
-        batch_op.add_column(sa.Column("calculated_size", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("calculated_size", sa.BigInteger(), nullable=True)
+        )
         batch_op.add_column(sa.Column("checksum_time", sa.DateTime(), nullable=True))
 
 

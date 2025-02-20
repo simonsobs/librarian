@@ -53,7 +53,7 @@ class Instance(db.Base):
 
     calculated_checksum = db.Column(db.String, nullable=True)
     "The checksum that has been calculated for this on-disk instance"
-    calculated_size = db.Column(db.Integer, nullable=True)
+    calculated_size = db.Column(db.BigInteger, nullable=True)
     "The size of the file that was calculated at the same time as the checksum"
     checksum_time = db.Column(db.DateTime, nullable=True)
     "The time at which the calculated_checksum was checked"
