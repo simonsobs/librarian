@@ -136,6 +136,7 @@ class Instance(db.Base):
         self,
         session: Session,
         commit: bool = True,
+        force_recompute: bool = False,
     ) -> tuple[str, int]:
         """
         Calculates the checksum of the instance on disk. It will use the stored checksum
@@ -148,6 +149,8 @@ class Instance(db.Base):
             Session must be active as we make sub-queries for file.
         commit: bool = True
             Whether to commit any new changes to the database.
+        force_recompute: bool = False
+            Re-compute the checksum even when a hashed version is available.
 
         Returns
         -------
@@ -164,7 +167,11 @@ class Instance(db.Base):
 
         current_time = datetime.now(timezone.utc)
 
-        if self.checksum_time is not None and self.calculated_checksum is not None:
+        if (
+            (self.checksum_time is not None)
+            and (self.calculated_checksum is not None)
+            and (not force_recompute)
+        ):
             checksum_time = self.checksum_time.astimezone(timezone.utc)
             if (current_time - checksum_time) < server_settings.checksum_timeout:
                 logger.info(

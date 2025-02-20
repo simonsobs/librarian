@@ -9,7 +9,7 @@ from loguru import logger
 from schedule import CancelJob
 from sqlalchemy.orm import Session
 
-from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from hera_librarian.utils import compare_checksums
 from librarian_server.database import get_session
 from librarian_server.orm import Instance, StoreMetadata
 from librarian_server.orm.file import CorruptFile, File
@@ -81,10 +81,7 @@ class CheckIntegrity(Task):
         for file in files:
             # Now we can check the integrity of each file.
             try:
-                hash_function = get_hash_function_from_hash(file.file.checksum)
-                path_info = store.store_manager.path_info(
-                    file.path, hash_function=hash_function
-                )
+                checksum, size = file.calculate_checksum(session=session, commit=True)
             except FileNotFoundError:
                 all_files_fine = False
                 logger.error(
@@ -98,7 +95,7 @@ class CheckIntegrity(Task):
             # Compare checksum to database
             expected_checksum = file.file.checksum
 
-            if compare_checksums(expected_checksum, path_info.checksum):
+            if compare_checksums(expected_checksum, checksum):
                 logger.info(
                     "Instance {} on store {} has been validated (Instance: {})",
                     file.path,
@@ -120,8 +117,8 @@ class CheckIntegrity(Task):
                 if corrupt_file is None:
                     corrupt_file = CorruptFile.new_corrupt_file(
                         instance=file,
-                        size=path_info.size,
-                        checksum=path_info.checksum,
+                        size=size,
+                        checksum=checksum,
                     )
                     session.add(corrupt_file)
                     session.commit()
@@ -134,7 +131,7 @@ class CheckIntegrity(Task):
                     file.path,
                     store.name,
                     expected_checksum,
-                    path_info.checksum,
+                    checksum,
                     file.id,
                 )
         if all_files_fine:

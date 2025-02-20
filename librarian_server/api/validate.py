@@ -27,7 +27,7 @@ from hera_librarian.models.validate import (
     FileValidationResponse,
     FileValidationResponseItem,
 )
-from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from hera_librarian.utils import compare_checksums
 
 from ..database import yield_session
 from ..logger import log
