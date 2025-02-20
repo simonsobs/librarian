@@ -23,23 +23,6 @@ from .core import CoreStore
 from .pathinfo import PathInfo
 
 
-def remove_readonly(func, path, _):
-    """
-    Clear the readonly bit and reattempt the removal, see
-    https://docs.python.org/3/library/shutil.html#rmtree-example
-    """
-    os.chmod(
-        path,
-        stat.S_IREAD
-        | stat.S_IWRITE
-        | stat.S_IRGRP
-        | stat.S_IWGRP
-        | stat.S_IROTH
-        | stat.S_IWOTH,
-    )
-    func(path)
-
-
 class LocalStore(CoreStore):
     staging_path: Path
     store_path: Path
@@ -173,6 +156,56 @@ class LocalStore(CoreStore):
 
         return
 
+    def remove_readonly_store(self, func, path, _):
+        """
+        Clear the readonly bit and reattempt the removal, see
+        https://docs.python.org/3/library/shutil.html#rmtree-example.
+
+        Makes the file writeable by all, and also checks the parent
+        (if it is in the store area) and ensures it has the correct
+        +x directory bit set.
+        """
+        os.chmod(
+            path,
+            stat.S_IREAD
+            | stat.S_IWRITE
+            | stat.S_IRGRP
+            | stat.S_IWGRP
+            | stat.S_IROTH
+            | stat.S_IWOTH,
+        )
+
+        parent = os.path.dirname(path)
+        parent_stat = os.stat(parent)
+        parent_imode = stat.S_IMODE(parent_stat.st_mode)
+        set_permissions = False
+
+        try:
+            self.resolve_path_store(Path(parent))
+        except ValueError:
+            # Parent is _not_ in store.
+            func(path)
+            return
+
+        # Check if +x bit is already set:
+        if not (parent_imode & stat.S_IWRITE) and (parent_imode & stat.S_IEXEC):
+            set_permissions = True
+            os.chmod(parent, parent_imode | stat.S_IEXEC | stat.S_IWRITE)
+
+        to_raise = None
+
+        try:
+            func(path)
+        except Exception as e:
+            to_raise = e
+
+        # Put it back! Must do this even if we fail the func!
+        if set_permissions:
+            os.chmod(parent, parent_imode)
+
+        if to_raise:
+            raise e
+
     def delete(self, path: Path):
         complete_path = self._resolved_path_store(path)
 
@@ -188,7 +221,7 @@ class LocalStore(CoreStore):
                 logger.info(
                     f"Directory {complete_path} is not empty. Deleting all contents"
                 )
-                shutil.rmtree(complete_path, onerror=remove_readonly)
+                shutil.rmtree(complete_path, onerror=self.remove_readonly_store)
 
         # Check if the parent is empty. We don't want to leave dregs!
         if os.path.exists(complete_path.parent):
