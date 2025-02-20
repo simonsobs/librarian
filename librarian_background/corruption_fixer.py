@@ -17,7 +17,7 @@ from hera_librarian.models.corrupt import (
     CorruptionResendResponse,
 )
 from hera_librarian.transfer import TransferStatus
-from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from hera_librarian.utils import compare_checksums
 from librarian_server.database import get_session
 from librarian_server.orm.file import CorruptFile, File
 from librarian_server.orm.instance import Instance
@@ -91,13 +91,11 @@ class CorruptionFixer(Task):
 
             # Step A: Check that the file is actually corrupt
             try:
-                hash_function = get_hash_function_from_hash(potential_file.checksum)
-                store = potential_instance.store
-                path_info = store.store_manager.path_info(
-                    potential_instance.path, hash_function=hash_function
+                potential_checksum, potential_size = (
+                    potential_instance.calculate_checksum(session=session, commit=True)
                 )
 
-                if compare_checksums(potential_file.checksum, path_info.checksum):
+                if compare_checksums(potential_file.checksum, potential_checksum):
                     logger.info(
                         "CorruptFile {id} stated that file {name} was corrupt in instance {inst_id} "
                         "but we just checked the checksums: {chk_a}=={chk_b} and the file is fine "
@@ -106,7 +104,7 @@ class CorruptionFixer(Task):
                         name=corrupt.file_name,
                         inst_id=corrupt.instance_id,
                         chk_a=potential_file.checksum,
-                        chk_b=path_info.checksum,
+                        chk_b=potential_checksum,
                     )
                     session.delete(corrupt)
                     session.commit()

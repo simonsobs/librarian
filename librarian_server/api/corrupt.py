@@ -13,7 +13,7 @@ from hera_librarian.models.corrupt import (
     CorruptionResendRequest,
     CorruptionResendResponse,
 )
-from hera_librarian.utils import compare_checksums, get_hash_function_from_hash
+from hera_librarian.utils import compare_checksums
 from librarian_server.orm.file import File
 from librarian_server.orm.instance import Instance, RemoteInstance
 from librarian_server.orm.librarian import Librarian
@@ -99,12 +99,11 @@ def user_and_librarian_validation_flow(
             ),
         )
 
-    hash_function = get_hash_function_from_hash(file.checksum)
-    path_info = best_instance.store.store_manager.path_info(
-        best_instance.path, hash_function=hash_function
+    recomputed_checksum, _ = best_instance.calculate_checksum(
+        session=session, commit=True, force_recompute=True
     )
 
-    if not compare_checksums(file.checksum, path_info.checksum):
+    if not compare_checksums(file.checksum, recomputed_checksum):
         logger.error(
             "Our copy of the file {} is corrupt, we cannot send it to {}",
             file_name,

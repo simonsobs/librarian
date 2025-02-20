@@ -3,6 +3,7 @@ Settings for the librarian server. This is a pydantic model
 deserialized from the available librarian config path.
 """
 
+import datetime
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -179,6 +180,7 @@ class ServerSettings(BaseSettings):
 
     # Checksumming options
     checksum_threads: int = 4
+    checksum_timeout: datetime.timedelta = datetime.timedelta(days=1)
 
     model_config = SettingsConfigDict(env_prefix="librarian_server_")
 
