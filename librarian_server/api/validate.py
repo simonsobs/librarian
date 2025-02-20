@@ -39,80 +39,42 @@ from .auth import ReadonlyUserDependency
 
 router = APIRouter(prefix="/api/v2/validate")
 
-VALIDATION_TIMEOUT = datetime.timedelta(hours=8)
-VALIDATION_CACHE = {}
-
-
-async def cached_calculate_checksum_of_local_copy(
-    original_checksum: str,
-    original_size: int,
-    path_info_function: callable,
-    path: Path,
-    store_id: int,
-    instance_id: int,
-):
-    key = f"{original_checksum}-{instance_id}"
-
-    cached = VALIDATION_CACHE.get(key, None)
-
-    if cached is None or (
-        (datetime.datetime.now(datetime.timezone.utc) - cached[1]) > VALIDATION_TIMEOUT
-    ):
-        result = await asyncify(calculate_checksum_of_local_copy)(
-            original_checksum=original_checksum,
-            original_size=original_size,
-            path_info_function=path_info_function,
-            path=path,
-            store_id=store_id,
-            instance_id=instance_id,
-        )
-
-        VALIDATION_CACHE[key] = (result, datetime.datetime.now(datetime.timezone.utc))
-    else:
-        log.info(
-            f"Using cached result for instance {instance_id}", instance_id=instance_id
-        )
-        result = cached[0]
-
-    return result
-
 
 def calculate_checksum_of_local_copy(
     original_checksum: str,
     original_size: int,
-    path_info_function: callable,
-    path: Path,
-    store_id: int,
-    instance_id: int,
+    instance: Instance,
+    session: Session,
 ):
     start = perf_counter()
-    hash_function = get_hash_function_from_hash(original_checksum)
     try:
-        path_info = path_info_function(path, hash_function=hash_function)
+        current_checksum, current_size = instance.calculate_checksum(
+            session=session, commit=True
+        )
         response = FileValidationResponseItem(
             librarian=server_settings.name,
-            store=store_id,
-            instance_id=instance_id,
+            store=instance.store_id,
+            instance_id=instance.id,
             original_checksum=original_checksum,
             original_size=original_size,
-            current_checksum=path_info.checksum,
-            current_size=path_info.size,
+            current_checksum=current_checksum,
+            current_size=current_size,
             computed_same_checksum=compare_checksums(
-                original_checksum, path_info.checksum
+                original_checksum, current_checksum
             ),
         )
         end = perf_counter()
 
         log.debug(
-            f"Calculated path info for {instance_id} ({path_info.size} B) "
-            f"in {end - start:.2f} seconds."
+            f"Calculated path info for {response.instance_id} / {instance.path} "
+            f"({response.current_size} B) in {end - start:.2f} seconds"
         )
 
         return [response]
     except FileNotFoundError:
         # A mistakenly 'available' file that is not actually available.
         log.error(
-            f"File {path} in store {store_id} marked as available but does not exist."
+            f"File {instance.path} in store {instance.store_id} marked as available but does not exist."
         )
 
         return []
@@ -224,13 +186,11 @@ async def validate_file(
         if not instance.available:
             continue
 
-        this_checksum_info = cached_calculate_checksum_of_local_copy(
+        this_checksum_info = asyncify(calculate_checksum_of_local_copy)(
             original_checksum=file.checksum,
             original_size=file.size,
-            path_info_function=instance.store.store_manager.path_info,
-            path=instance.path,
-            store_id=instance.store.id,
-            instance_id=instance.id,
+            instance=instance,
+            session=session,
         )
 
         coroutines.append(this_checksum_info)

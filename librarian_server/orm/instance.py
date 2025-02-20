@@ -11,6 +11,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from hera_librarian.deletion import DeletionPolicy
+from hera_librarian.utils import get_hash_function_from_hash
 
 from .. import database as db
 from ..settings import server_settings
@@ -49,6 +50,13 @@ class Instance(db.Base):
     "The time at which this file was placed on the store."
     available = db.Column(db.Boolean, nullable=False)
     "Whether or not this file is available on our librarian."
+
+    calculated_checksum = db.Column(db.String, nullable=True)
+    "The checksum that has been calculated for this on-disk instance"
+    calculated_size = db.Column(db.Integer, nullable=True)
+    "The size of the file that was calculated at the same time as the checksum"
+    checksum_time = db.Column(db.DateTime, nullable=True)
+    "The time at which the calculated_checksum was checked"
 
     @classmethod
     def new_instance(
@@ -123,6 +131,72 @@ class Instance(db.Base):
             session.commit()
 
         return
+
+    def calculate_checksum(
+        self,
+        session: Session,
+        commit: bool = True,
+    ) -> tuple[str, int]:
+        """
+        Calculates the checksum of the instance on disk. It will use the stored checksum
+        in the table instead if it has not yet timed out and has been recently calculated.
+
+        Parameters
+        ----------
+        session: Session
+            The database session to use; this can be committed to if commit=True below.
+            Session must be active as we make sub-queries for file.
+        commit: bool = True
+            Whether to commit any new changes to the database.
+
+        Returns
+        -------
+        checksum: str
+            The checksum, calculated or drawn from the database.
+        size: int
+            Size of the on-disk file in bytes.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file was not found on disk.
+        """
+
+        current_time = datetime.now(timezone.utc)
+
+        if self.checksum_time is not None and self.calculated_checksum is not None:
+            checksum_time = self.checksum_time.astimezone(timezone.utc)
+            if (current_time - checksum_time) < server_settings.checksum_timeout:
+                logger.info(
+                    "Returning a cached checksum from {time} for instance {id} at "
+                    "{path} - {checksum}",
+                    time=checksum_time,
+                    id=self.id,
+                    path=self.path,
+                    checksum=self.calculated_checksum,
+                )
+                return self.calculated_checksum, self.calculated_size
+
+        # We must calculate the checksum fresh.
+        hash_function = get_hash_function_from_hash(self.file.checksum)
+        path_info = self.store.store_manager.path_info(self.path, hash_function)
+
+        logger.info(
+            "Calculated a fresh checksum at {time} for instance {id} at {path} - {checksum}",
+            time=current_time,
+            id=self.id,
+            path=self.path,
+            checksum=self.calculated_checksum,
+        )
+
+        self.calculated_checksum = path_info.checksum
+        self.calculated_size = path_info.size
+        self.checksum_time = current_time
+
+        if commit:
+            session.commit()
+
+        return self.calculated_checksum, self.calculated_size
 
 
 class RemoteInstance(db.Base):
