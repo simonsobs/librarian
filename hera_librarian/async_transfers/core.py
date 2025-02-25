@@ -71,3 +71,10 @@ class CoreAsyncTransferManager(BaseModel, abc.ABC):
         to set (e.g.) internal flags as required.
         """
         raise NotImplementedError
+    
+    @abc.abstractmethod
+    def fail_transfer(self, settings: "ServerSettings") -> bool:
+        """
+        Fail the current transfer.
+        """
+        raise NotImplementedError

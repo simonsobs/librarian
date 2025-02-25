@@ -328,5 +328,46 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 return TransferStatus.COMPLETED
             elif task_doc["status"] == "FAILED":
                 return TransferStatus.FAILED
+            # When there are errors, better fail the task and try again. There is
+            # a different check for faults to make the state transition as clear as
+            # possible.
+            elif task_doc["faults"] > 0:
+                return TransferStatus.FAILED
             else:  # "status" == "ACTIVE"
                 return TransferStatus.INITIATED
+
+    def fail_transfer(self, settings: "ServerSettings") -> bool:
+        """
+        A GLobus task needs to be canceled because it has errors.
+
+        Parameters
+        ----------
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        bool
+            Whether we could successfully cancelled a transfer (True) or not
+            (False).
+
+        """
+        authorizer = self.authorize(settings=settings)
+        if authorizer is None:
+            # We *should* be able to just assume that we have already
+            # authenticated and should be able to query the status of our
+            # transfer. However, if for whatever reason we're not able to talk
+            # to Globus (network issues, Globus outage, etc.), we won't be able
+            # to find out our transfer's status -- let's bail and assume we
+            # failed
+            return False
+        
+        transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
+
+        try:
+            _ = transfer_client.cancel_task(self.task_id)
+        except globus_sdk.TransferAPIError as e:
+            return False
+        return True
+    
