@@ -87,6 +87,7 @@ def calculate_checksum_of_remote_copies(
     start = perf_counter()
     try:
         client = librarian.client()
+        client.ping()
     except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError) as e:
         log.error(f"Unable to contact downstream librarian {librarian.name}")
         return []
@@ -101,7 +102,7 @@ def calculate_checksum_of_remote_copies(
         )
 
         return responses
-    except (LibrarianHTTPError, LibrarianError):
+    except (LibrarianHTTPError, LibrarianError, LibrarianTimeoutError):
         log.error(
             f"Failed to validate file {file_name} with librarian {librarian.name}"
         )
