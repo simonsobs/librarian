@@ -362,7 +362,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             # to find out our transfer's status -- let's bail and assume we
             # failed
             return False
-        
+
         transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
 
         try:
@@ -370,4 +370,3 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         except globus_sdk.TransferAPIError as e:
             return False
         return True
-    

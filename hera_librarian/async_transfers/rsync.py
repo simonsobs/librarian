@@ -71,3 +71,6 @@ class RsyncAsyncTransferManager(CoreAsyncTransferManager):
                 return TransferStatus.INITIATED
             else:
                 return TransferStatus.FAILED
+
+    def fail_transfer(self, settings: "ServerSettings") -> bool:
+        return True
