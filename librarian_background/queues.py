@@ -205,8 +205,7 @@ def check_on_consumed(
             elif current_status == TransferStatus.FAILED:
                 logger.info("Transfer for {q.id} has failed", q=queue_item)
                 queue_item.async_transfer_manager.fail_transfer(server_settings)
-                for transfer in queue_item.transfers:
-                    transfer.fail_transfer(session=session, commit=False)
+                queue_item.fail(session=session)                
             else:
                 logger.error(
                     "Incompatible return value for transfer status from "
