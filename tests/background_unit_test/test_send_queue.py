@@ -24,6 +24,7 @@ class NoCopyAsyncTransferManager(CoreAsyncTransferManager):
     def fail_transfer(self, settings):
         return True
 
+
 def test_create_queue_item(test_server_with_valid_file, test_orm):
     """
     Manually create a new queue item and see if it works when trying
