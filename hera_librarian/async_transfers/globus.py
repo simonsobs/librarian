@@ -148,6 +148,8 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             verify_checksum=True,  # We do this ourselves, but globus will auto-retry if it detects failed files
             preserve_timestamp=True,
             notify_on_succeeded=False,
+            skip_source_errors=False,
+            fail_on_quota_errors=True,
         )
 
         return transfer_data
@@ -273,7 +275,9 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             # Globus transfer.
             relative_local_path = self._subtract_local_root(local_path, settings)
             transfer_data.add_item(
-                str(relative_local_path), str(remote_path), recursive=local_path.is_dir()
+                str(relative_local_path),
+                str(remote_path),
+                recursive=local_path.is_dir(),
             )
 
         # submit the transfer
@@ -327,11 +331,6 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             if task_doc["status"] == "SUCCEEDED":
                 return TransferStatus.COMPLETED
             elif task_doc["status"] == "FAILED":
-                return TransferStatus.FAILED
-            # When there are errors, better fail the task and try again. There is
-            # a different check for faults to make the state transition as clear as
-            # possible.
-            elif task_doc["faults"] > 0:
                 return TransferStatus.FAILED
             else:  # "status" == "ACTIVE"
                 return TransferStatus.INITIATED
