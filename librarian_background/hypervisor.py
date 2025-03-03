@@ -239,6 +239,8 @@ def handle_stale_incoming_transfer(
         )
 
         source_status = response.source_transfer_status[transfer.source_transfer_id]
+        if source_status is None:
+            raise ValueError("No status found for transfer")
     except Exception as e:
         logger.error(
             "Unsuccessfully tried to contact {} for information on transfer "
