@@ -10,8 +10,9 @@ b) Successful transfer, if the file is found on the downstream
 
 import datetime
 import time
+import shutil
 from time import perf_counter
-
+from pathlib import Path
 from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from hera_librarian.exceptions import LibrarianHTTPError, LibrarianTimeoutError
 from hera_librarian.models.checkin import CheckinStatusRequest, CheckinStatusResponse
 from hera_librarian.utils import compare_checksums
 from librarian_server.database import get_session
+from librarian_server.settings import load_settings
 from librarian_server.orm import (
     Librarian,
     OutgoingTransfer,
@@ -47,7 +49,7 @@ def get_stale_of_type(session: Session, age_in_days: int, transfer_type: object)
     transfer_stmt = transfer_stmt.where(transfer_type.start_time < stale_since)
 
     transfer_stmt = transfer_stmt.where(
-        transfer_type.status.in_(
+        o.status.in_(
             [TransferStatus.INITIATED, TransferStatus.ONGOING, TransferStatus.STAGED]
         )
     )
@@ -239,6 +241,8 @@ def handle_stale_incoming_transfer(
         )
 
         source_status = response.source_transfer_status[transfer.source_transfer_id]
+        if source_status is None:
+            raise ValueError("No status found for transfer")
     except Exception as e:
         logger.error(
             "Unsuccessfully tried to contact {} for information on transfer "
@@ -325,6 +329,17 @@ def handle_stale_incoming_transfer(
         if source_status == TransferStatus.INITIATED:
             transfer.fail_transfer(session=session, commit=True)
             return False
+        elif source_status == TransferStatus.COMPLETED:
+            # Check if there is a valid store path and delete it's staging area
+            if transfer.store_path:
+                server_settings = load_settings()
+                file_path = Path(settinetransfer.store_path)
+                staging_path = Path(transfer.staging_path + transfer.store_path)
+                if file_path.exists() and staging_path.exists():
+                    shutil.rmtree(staging_path)
+            transfer.status = source_status
+            session.commit()
+            return True 
         else:
             assert source_status == TransferStatus.STAGED
             # Remote more advanced (STAGED)
