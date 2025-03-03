@@ -8,7 +8,7 @@ from pathlib import Path
 import globus_sdk
 
 from hera_librarian.transfer import TransferStatus
-
+from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 from .core import CoreAsyncTransferManager
 
 
@@ -331,6 +331,15 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             if task_doc["status"] == "SUCCEEDED":
                 return TransferStatus.COMPLETED
             elif task_doc["status"] == "FAILED":
+                return TransferStatus.FAILED
+            # When there are errors, better fail the task and try again. There is
+            # a different check for faults to make the state transition as clear as
+            # possible.
+            elif task_doc["faults"] > 0:
+                task_event_list = transfer_client.task_event_list(self.task_id)
+                for event in task_event_list:
+                    if event["code"] in GLOBUS_ERROR_EVENTS and event["is_error"]:
+                        return TransferStatus.FAILED
                 return TransferStatus.FAILED
             else:  # "status" == "ACTIVE"
                 return TransferStatus.INITIATED

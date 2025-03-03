@@ -228,3 +228,21 @@ def get_size_from_path(path):
             size += os.path.getsize(dirname + "/" + f)
 
     return size
+
+
+# --- Globus Events ---
+GLOBUS_EVENTS = [
+    "AMBIGUOUS_PATH",
+    "IS_A_DIRECTORY",
+    "EXPIRED",
+    "FILE_NOT_FOUND",
+    "FILE_SIZE_CHANGED",
+    "INVALID_PATH_NAME",
+    "INVALID_SERVICE_CREDENTIAL",
+    "INVALID_SYMLINK",
+    "LIMIT_EXCEEDED",
+    "NO_CREDENTIALS",
+    "NO_SPACE_LEFT",
+    "PERMISSION_DENIED",
+    "QUOTA_EXCEEDED",
+]
