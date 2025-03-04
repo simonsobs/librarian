@@ -231,7 +231,7 @@ def get_size_from_path(path):
 
 
 # --- Globus Events ---
-GLOBUS_EVENTS = [
+GLOBUS_ERROR_EVENTS = [
     "AMBIGUOUS_PATH",
     "IS_A_DIRECTORY",
     "EXPIRED",
