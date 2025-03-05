@@ -8,6 +8,7 @@ from pathlib import Path
 import globus_sdk
 
 from hera_librarian.transfer import TransferStatus
+from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 
 from .core import CoreAsyncTransferManager
 
@@ -148,6 +149,8 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             verify_checksum=True,  # We do this ourselves, but globus will auto-retry if it detects failed files
             preserve_timestamp=True,
             notify_on_succeeded=False,
+            skip_source_errors=False,
+            fail_on_quota_errors=True,
         )
 
         return transfer_data
@@ -273,7 +276,9 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             # Globus transfer.
             relative_local_path = self._subtract_local_root(local_path, settings)
             transfer_data.add_item(
-                str(relative_local_path), str(remote_path), recursive=local_path.is_dir()
+                str(relative_local_path),
+                str(remote_path),
+                recursive=local_path.is_dir(),
             )
 
         # submit the transfer
@@ -328,5 +333,49 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 return TransferStatus.COMPLETED
             elif task_doc["status"] == "FAILED":
                 return TransferStatus.FAILED
+            # When there are errors, better fail the task and try again. There is
+            # a different check for faults to make the state transition as clear as
+            # possible.
+            elif task_doc["faults"] > 0:
+                task_event_list = transfer_client.task_event_list(self.task_id)
+                for event in task_event_list:
+                    if event["code"] in GLOBUS_ERROR_EVENTS and event["is_error"]:
+                        return TransferStatus.FAILED
+                return TransferStatus.FAILED
             else:  # "status" == "ACTIVE"
                 return TransferStatus.INITIATED
+
+    def fail_transfer(self, settings: "ServerSettings") -> bool:
+        """
+        A GLobus task needs to be canceled because it has errors.
+
+        Parameters
+        ----------
+        settings : ServerSettings object
+            The settings for the Librarian server. These settings should include
+            the Globus login information.
+
+        Returns
+        -------
+        bool
+            Whether we could successfully cancelled a transfer (True) or not
+            (False).
+
+        """
+        authorizer = self.authorize(settings=settings)
+        if authorizer is None:
+            # We *should* be able to just assume that we have already
+            # authenticated and should be able to query the status of our
+            # transfer. However, if for whatever reason we're not able to talk
+            # to Globus (network issues, Globus outage, etc.), we won't be able
+            # to find out our transfer's status -- let's bail and assume we
+            # failed
+            return False
+
+        transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
+
+        try:
+            _ = transfer_client.cancel_task(self.task_id)
+        except globus_sdk.TransferAPIError as e:
+            return False
+        return True

@@ -21,6 +21,9 @@ class NoCopyAsyncTransferManager(CoreAsyncTransferManager):
     def transfer_status(self, *args, **kwargs):
         return self.complete_transfer_status
 
+    def fail_transfer(self, settings):
+        return True
+
 
 def test_create_queue_item(test_server_with_valid_file, test_orm):
     """
