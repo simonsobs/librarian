@@ -790,7 +790,7 @@ def set_librarian_transfer(args):
         die("You must choose to enable or disable the transfers.")
 
     try:
-        client.set_librarian_transfer(
+        client.set_librarian_status(
             librarian_name=args.librarian_name,
             transfer_status=transfer_status,
         )

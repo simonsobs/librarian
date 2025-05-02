@@ -1,5 +1,5 @@
 """
-Pydantic modems for the admin endpoints
+Pydantic models for the remote transfer update endpoints
 """
 
 from datetime import datetime
@@ -24,6 +24,16 @@ class LibrarianTransfersStatusResponse(BaseModel):
     librarian_name: str
 
     "Whether the librarian has outbound transfers enabled."
+    transfers_enabled: bool
+
+class LocalLibrarianTransfersStatusRequest(BaseModel):
+    """
+    A request to change the transfer status of a librarian, either
+    to enable or disable inbound transfers.
+    """
+    "The name of the librarian to change the transfer status from."
+    librarian_name: str
+    "Whether to enable or disable outbound transfers."
     transfers_enabled: bool
 
 class LibrarianTransfersUpdateRequest(BaseModel):
