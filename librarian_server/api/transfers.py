@@ -3,29 +3,28 @@ Check in and modify the states of source and destination
 transfers.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Response, status as status_codes
 from sqlalchemy.orm import Session
 
 from hera_librarian.authlevel import AuthLevel
-from hera_librarian.models.status import (
+from hera_librarian.models.transfers import (
     LibrarianTransfersFailedResponse,
     LibrarianTransfersStatusRequest,
     LibrarianTransfersStatusResponse,
     LibrarianTransfersUpdateRequest,
     LibrarianTransfersUpdateResponse,
-    LocalLibrarianTransfersStatusRequest,
+    LocalLibrarianTransfersUpdateRequest,
 )
 
 from ..database import yield_session
 from ..logger import log
 from ..orm.librarian import Librarian
-from .auth import CallbackUserDependency
+from .auth import CallbackUserDependency, AdminUserDependency
 
 router = APIRouter(prefix="/api/v2/transfers")
 
 @router.post("/status", response_model=LibrarianTransfersStatusResponse)
-def update(
+def status(
     request: LibrarianTransfersStatusRequest,
     response: Response,
     user: CallbackUserDependency,
@@ -42,14 +41,14 @@ def update(
     )
 
     if librarian is None:
-        response.status_code = status.HTTP_400_BAD_REQUEST
+        response.status_code = status_codes.HTTP_400_BAD_REQUEST
         return LibrarianTransfersFailedResponse(
             reason=f"Librarian {request.librarian_name} does not exist",
             suggested_remedy="Please verify that the requested librarian exists",
         )
     
     if librarian.name != request.librarian_name:
-        response.status_code = status.HTTP_403_FORBIDDEN
+        response.status_code = status_codes.HTTP_403_FORBIDDEN
         return LibrarianTransfersFailedResponse(
             reason="Cannot check the status of another librarian.",
             suggested_remedy="Please verify that you are the librarian making this request",
@@ -67,7 +66,7 @@ def update(
 
 @router.post("/update", response_model=LibrarianTransfersUpdateResponse | LibrarianTransfersFailedResponse)
 def update(
-    request: LibrarianTransfersUpdateRequest | LocalLibrarianTransfersStatusRequest,
+    request: LibrarianTransfersUpdateRequest | LocalLibrarianTransfersUpdateRequest,
     response: Response,
     user: CallbackUserDependency | AdminUserDependency,
     session: Session = Depends(yield_session),
@@ -82,14 +81,15 @@ def update(
         librarian = (
             session.query(Librarian).filter_by(name=request.librarian_name).one_or_none()
         )
-        "/api/v2/transfers/update" = LibrarianTransfersUpdateRequest(
+        update_request = LocalLibrarianTransfersUpdateRequest(
             librarian_name=librarian.name,
             transfers_enabled=request.transfers_enabled)
-        response : librarian.client.post(
-                endpoint="/api/v2/transfers/update",
-                request="/api/v2/transfers/update",
+        response: LibrarianTransfersUpdateResponse = librarian.client.post(
+                endpoint="transfers/update",
+                request=update_request,
                 response=LibrarianTransfersUpdateResponse,
         )
+
     else:
 
         librarian = (
@@ -97,14 +97,14 @@ def update(
         )
 
         if librarian is None:
-            response.status_code = status.HTTP_400_BAD_REQUEST
+            response.status_code = status_codes.HTTP_400_BAD_REQUEST
             return LibrarianTransfersFailedResponse(
                 reason=f"Librarian {request.librarian_name} does not exist",
                 suggested_remedy="Please verify that the requested librarian exists",
             )
         
         if librarian.name != request.librarian_name:
-            response.status_code = status.HTTP_403_FORBIDDEN
+            response.status_code = status_codes.HTTP_403_FORBIDDEN
             return LibrarianTransfersFailedResponse(
                 reason="Cannot change the status of another librarian.",
                 suggested_remedy="Please verify that you are the librarian making this request",

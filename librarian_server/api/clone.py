@@ -163,7 +163,7 @@ def de_duplicate_file_and_transfer(
         )
 
         if existing_transfer.status == TransferStatus.ONGOING:
-            log.info(f"Found existing transfer with status ONGOING. Returning error.")
+            log.info("Found existing transfer with status ONGOING. Returning error.")
 
             raise HTTPException(
                 status.HTTP_425_TOO_EARLY,

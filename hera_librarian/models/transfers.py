@@ -26,7 +26,7 @@ class LibrarianTransfersStatusResponse(BaseModel):
     "Whether the librarian has outbound transfers enabled."
     transfers_enabled: bool
 
-class LocalLibrarianTransfersStatusRequest(BaseModel):
+class LocalLibrarianTransfersUpdateRequest(BaseModel):
     """
     A request to change the transfer status of a librarian, either
     to enable or disable inbound transfers.
