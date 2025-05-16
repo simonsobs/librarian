@@ -81,8 +81,8 @@ def update(
         librarian = (
             session.query(Librarian).filter_by(name=request.librarian_name).one_or_none()
         )
-        update_request = LocalLibrarianTransfersUpdateRequest(
-            librarian_name=librarian.name,
+        update_request = LibrarianTransfersUpdateRequest(
+            librarian_name=user.username,
             transfers_enabled=request.transfers_enabled)
         response: LibrarianTransfersUpdateResponse = librarian.client.post(
                 endpoint="transfers/update",

@@ -777,7 +777,7 @@ def set_librarian_transfer(args):
     Set the transfer status of a librarian.
     """
 
-    client = get_client(args.conn_name, admin=True)
+    client = get_client(args.conn_name, admin=args.admin)
 
     if args.enabled and args.disabled:
         die("Cannot set both enabled and disabled.")
@@ -1759,6 +1759,11 @@ def config_set_librarian_transfer_subparser(sub_parsers):
         "--disabled",
         action="store_true",
         help="Set the librarian to disabled for transfers.",
+    )
+    sp.add_argument(
+        "--admin",
+        action="store_true",
+        help="Set the librarian transfer state as an admin.",
     )
     sp.set_defaults(func=set_librarian_transfer)
 

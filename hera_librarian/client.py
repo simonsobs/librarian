@@ -75,6 +75,10 @@ from .models.validate import (
     FileValidationResponse,
     FileValidationResponseItem,
 )
+from .models.transfers import (
+    LibrarianTransfersStatusRequest,
+    LibrarianTransfersStatusResponse,
+)
 from .settings import ClientInfo
 from .utils import (
     get_checksum_from_path,
@@ -547,6 +551,45 @@ class LibrarianClient:
         )
 
         return response.root
+
+    def set_librarian_status(
+        self,
+        librarian_name: str,
+        transfers_enabled: bool,
+    ) -> bool:
+        """
+        Set the status of transfers to the librarian.
+
+        Parameters
+        ----------
+        librarian_name : str
+            The name of the librarian to set the status of.
+        transfers_enabled : bool
+            Whether transfers to this librarian should be enabled.
+
+        Returns
+        -------
+        bool
+            The new status.
+        """
+
+        try:
+            response = self.post(
+                endpoint="/api/v2/transfers/update",
+                request=LibrarianTransfersStatusRequest(
+                    librarian_name=librarian_name,
+                    transfers_enabled=transfers_enabled,
+                ),
+                response=LibrarianTransfersStatusResponse,
+            )
+        except LibrarianHTTPError as e:
+            if e.status_code == 400 and "Librarian" in e.reason:
+                raise LibrarianError(e.reason)
+            else:
+                raise e
+
+        return response.transfers_enabled
+
 
 
 class AdminClient(LibrarianClient):
