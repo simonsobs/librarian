@@ -12,6 +12,11 @@ from hera_librarian.transfer import TransferStatus
 
 from .core import CoreAsyncTransferManager
 
+# importing other libraries
+import time
+from datetime import datetime
+from typing import Optional
+
 
 class LocalAsyncTransferManager(CoreAsyncTransferManager):
     hostnames: list[str]
@@ -19,7 +24,26 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
     transfer_attempted: bool = False
     transfer_complete: bool = False
 
+    # Adding the transfer attributes
+    start_time_transfer: Optional[float] = None
+    bytes_transfer: Optional[int] = None
+
     def batch_transfer(self, paths: list[tuple[Path]], settings: "ServerSettings"):
+        # Begin initialization of time and total bytes
+        self.start_time_transfer = time.time()
+        total_bytes = 0
+
+        for local_path, _ in paths:
+            if local_path.is_dir():
+                total_bytes += sum(
+                    f.stat().st_size for f in local_path.glob("**/*") if f.is_file()
+                )
+            else:
+                total_bytes += local_path.stat().st_size
+
+        self.bytes_transfer = total_bytes
+        # End of initializations
+
         copy_success = True
 
         for local_path, remote_path in paths:
@@ -126,3 +150,36 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
 
     def fail_transfer(self, settings: "ServerSettings") -> bool:
         return True
+
+    def complete_transfer(self) -> dict | None:
+        """ """
+        # 1. Check if the transfer metrics were recorded
+        if self.start_time_transfer is None or self.bytes_transfer is None:
+            print("Error: Transfer metrics were not recorded.")
+            return None
+
+        # 2. Calculate performance metrics from the recorded data
+        end_time = time.time()
+        duration_seconds = end_time - self.start_time_transfer
+        total_bytes = self.bytes_transfer
+
+        if duration_seconds > 0:
+            bandwidth_mbps = (total_bytes * 8) / (duration_seconds * 1_000_000)
+        else:
+            bandwidth_mbps = -1
+
+        # 3. Create and return the report dictionary
+        transfer_report = {
+            "task_id": f"local_{int(end_time)}",
+            "source_endpoint_id": gethostname(),
+            "destination_endpoint_id": gethostname(),
+            "start_time": datetime.fromtimestamp(
+                self.start_time_transfer, tz=timezone.utc
+            ),
+            "end_time": datetime.fromtimestamp(end_time, tz=timezone.utc),
+            "duration_seconds": duration_seconds,
+            "bytes_transferred": total_bytes,
+            "effective_bandwidth_mbps": round(bandwidth_mbps, 2),
+        }
+
+        return transfer_report

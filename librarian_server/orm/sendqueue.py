@@ -73,6 +73,10 @@ class SendQueue(db.Base):
     failed: bool = db.Column(db.Boolean, default=False)
     "Whether this queue item failed, and that is the reason for completed status."
 
+    completed_record = db.relationship(
+        "CompletedTransfer", uselist=False, back_populates="send_queue"
+    )
+
     @classmethod
     def new_item(
         cls,
@@ -204,3 +208,31 @@ class SendQueue(db.Base):
         session.commit()
 
         return response
+
+
+class CompletedTransfer(db.Base):
+    """
+    Class's information will be added here!
+    """
+
+    __tablename__ = "completed_transfers"
+
+    id = db.Column(db.Integer, db.ForeignKey("send_queue.id"), primary_key=True)
+
+    send_queue = db.relationship("SendQueue", back_populates="completed_record")
+
+    task_id = db.Column(db.String(256), nullable=False, unique=True)
+
+    source_endpoint_id = db.Column(db.String(256), nullable=False)
+
+    destination_endpoint_id = db.Column(db.String(256), nullable=False)
+
+    start_time = db.Column(db.DateTime, nullable=False)
+
+    end_time = db.Column(db.DateTime, nullable=False)
+
+    duration_seconds = db.Column(db.Integer, nullable=False)
+
+    bytes_transferred = db.Column(db.BigInteger, nullable=False)
+
+    effective_bandwidth_mbps = db.Column(db.Integer, nullable=False)

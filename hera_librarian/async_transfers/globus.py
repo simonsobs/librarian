@@ -12,6 +12,11 @@ from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 
 from .core import CoreAsyncTransferManager
 
+# importing new libraries for the complete transfers
+from datetime import datetime
+from typing import Optional
+from globus_sdk.authorizers import GlobusAuthorizer
+
 
 class GlobusAsyncTransferManager(CoreAsyncTransferManager):
     """
@@ -23,6 +28,10 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
     destination_endpoint: str
     # The Globus endpoint UUID for the destination, entered in the configuration.
 
+    # I am adding this to allow one time authorization
+    authorizer: Optional[GlobusAuthorizer] = None
+    # ---
+
     native_app: bool = False
     # Whether to use a Native App (true) or a Confidential App (false, default)
     # for authorizing the client.
@@ -30,6 +39,9 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
     transfer_attempted: bool = False
     transfer_complete: bool = False
     task_id: str = ""
+
+    #
+    model_config = {"arbitrary_types_allowed": True}
 
     @staticmethod
     def _subtract_local_root(path: Path, settings: "ServerSettings") -> Path:
@@ -379,3 +391,68 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         except globus_sdk.TransferAPIError as e:
             return False
         return True
+
+    def complete_transfer(self, settings: "ServerSettings") -> dict | None:
+        """
+        Gathers details about a completed transfer from Globus and
+        returns them in a dictionary.
+        """
+        # If an authorizer isn't passed in, use the original method.
+        # This allows our test to "inject" a working one.
+        # authorizer = self.authorize(settings=settings)
+
+        if self.authorizer is None:
+            print("--> No authorizer provided, attempting internal authorization...")
+            self.authorizer = self.authorize(settings=settings)
+
+        if not self.authorizer:
+            print("Authorization failed.")
+            return None
+
+        print("Authorization successful.")
+
+        transfer_client = globus_sdk.TransferClient(authorizer=self.authorizer)
+
+        try:
+            print(f"--> Fetching task details for ID: {self.task_id}")
+            task_doc = transfer_client.get_task(self.task_id)
+            print(f"Task data fetched. Status is: {task_doc['status']}")
+        except globus_sdk.TransferAPIError as e:
+            print(f"Globus API Error when fetching task: {e}")
+            return None
+
+        if task_doc["status"] != "SUCCEEDED":
+            print(f"Task status is not SUCCEEDED.")
+            return None
+
+        # Calculate duration and bandwidth
+        bytes_transferred = task_doc["bytes_transferred"]
+        start_time = datetime.fromisoformat(task_doc["request_time"])
+        end_time = datetime.fromisoformat(task_doc["completion_time"])
+
+        duration = end_time - start_time
+        duration_seconds = duration.total_seconds()
+
+        bandwidth_bps = bytes_transferred / duration_seconds
+
+        if duration_seconds > 0:
+            bandwidth_mbps = (bandwidth_bps * 8) / 1_000_000
+        else:
+            bandwidth_mbps = 0
+
+        # creating the report dict
+        try:
+            transfer_report = {
+                "task_id": task_doc["task_id"],
+                "source_endpoint_id": task_doc["source_endpoint_id"],
+                "destination_endpoint_id": task_doc["destination_endpoint_id"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration_seconds": duration_seconds,
+                "bytes_transferred": bytes_transferred,
+                "effective_bandwidth_mbps": round(bandwidth_mbps, 2),
+            }
+        except:
+            print("there is an error!")
+
+        return transfer_report
