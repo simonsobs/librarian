@@ -14,7 +14,7 @@ from .core import CoreAsyncTransferManager
 
 # importing other libraries
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -170,7 +170,7 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
 
         # 3. Create and return the report dictionary
         transfer_report = {
-            "task_id": f"local_{int(end_time)}",
+            "task_id": f"local_{end_time}",
             "source_endpoint_id": gethostname(),
             "destination_endpoint_id": gethostname(),
             "start_time": datetime.fromtimestamp(

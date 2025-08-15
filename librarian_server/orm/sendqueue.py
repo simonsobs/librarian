@@ -74,7 +74,10 @@ class SendQueue(db.Base):
     "Whether this queue item failed, and that is the reason for completed status."
 
     completed_record = db.relationship(
-        "CompletedTransfer", uselist=False, back_populates="send_queue"
+        "CompletedTransfer",
+        uselist=False,
+        back_populates="send_queue",
+        cascade="all, delete-orphan",
     )
 
     @classmethod

@@ -31,6 +31,10 @@ class NoCopyAsyncTransferManager(CoreAsyncTransferManager):
     def fail_transfer(self, settings):
         return True
 
+    # Adding a new method
+    def complete_transfer(self):
+        return None
+
 
 def test_create_simple_queue_item_and_send(
     test_server, test_orm, mocked_admin_client, server
@@ -72,6 +76,7 @@ def test_create_simple_queue_item_and_send(
     from librarian_background.queues import check_on_consumed, consume_queue_item
 
     consume_queue_item(session_maker=get_session)
+
     check_on_consumed(
         session_maker=get_session,
         timeout_after=datetime.now(timezone.utc) + timedelta(days=7),
@@ -717,3 +722,100 @@ def test_create_send_queue_item_no_availability_of_transfer_manager(
         assert test == False
 
     return
+
+
+def test_local_transfer_creates_completion_record(
+    test_server_with_valid_file, test_orm, mocked_admin_client, server, tmp_path
+):
+    """
+    Tests that a successful local transfer processed by the queue
+    creates a corresponding record in the completed_transfers table.
+    """
+    # The fixtures provide us with a running server, a database session,
+    # and a pre-existing file to transfer.
+    SendQueue = test_orm.SendQueue
+    File = test_orm.File
+    OutgoingTransfer = test_orm.OutgoingTransfer
+    CompletedTransfer = test_orm.CompletedTransfer
+    get_session = test_server_with_valid_file[1]
+
+    # Adding this block to register the destination librarian
+    mocked_admin_client.add_librarian(
+        name="local_test_server",
+        url="http://localhost",
+        authenticator="admin:password",
+        port=server.id,
+    )
+
+    with get_session() as session:
+        # Get the file provided by the fixture
+        file = session.get(File, "example_file.txt")
+
+        # Create an OutgoingTransfer record for this file
+        transfer = OutgoingTransfer.new_transfer(
+            destination="local_test_server",
+            instance=file.instances[0],
+            file=file,
+        )
+
+        # Define the source and destination paths for the local copy
+        transfer.source_path = str(file.instances[0].path)
+        transfer.dest_path = str(tmp_path / file.name)
+
+        # Create the SendQueue item for this transfer
+        # using the real LocalAsyncTransferManager.
+        queue_item = SendQueue.new_item(
+            priority=100,
+            destination="local_test_server",
+            transfers=[transfer],
+            async_transfer_manager=LocalAsyncTransferManager(hostnames=[gethostname()]),
+        )
+
+        session.add_all([transfer, queue_item])
+        session.commit()
+        # Keep the ID for later verification
+        queue_item_id = queue_item.id
+        transfer_id = transfer.id
+        source_path_for_check = transfer.source_path
+
+    # These are the core functions that the librarian's background
+    # process would run.
+    from librarian_background.queues import check_on_consumed, consume_queue_item
+
+    print("Consuming queue item to start transfer...")
+    consume_queue_item(session_maker=get_session)
+
+    print("Checking on consumed item to finalize and record completion...")
+    check_on_consumed(
+        session_maker=get_session,
+        timeout_after=datetime.now(timezone.utc) + timedelta(days=7),
+    )
+
+    with get_session() as session:
+        # First, confirm the original SendQueue job was marked as complete
+        completed_queue_item = session.get(SendQueue, queue_item_id)
+        assert completed_queue_item.consumed
+        assert completed_queue_item.completed
+
+        # Re-fetch the transfer object to ensure it's attached to this session
+        transfer = session.query(OutgoingTransfer).filter_by(id=transfer.id).one()
+
+        # Now, check if our new CompletedTransfer record was created.
+        # This is the main goal of our test.
+        completion_record = (
+            session.query(CompletedTransfer).filter_by(id=queue_item_id).one_or_none()
+        )
+
+        # Assert that the record exists and has the correct data
+        assert (
+            completion_record is not None
+        ), "A CompletedTransfer record should have been created."
+        assert (
+            completion_record.bytes_transferred
+            == Path(transfer.source_path).stat().st_size
+        )
+        assert completion_record.effective_bandwidth_mbps > 0
+
+        print(
+            f"\n Success! CompletedTransfer record created with ID: {completion_record.id}"
+        )
