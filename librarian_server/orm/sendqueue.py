@@ -215,7 +215,7 @@ class SendQueue(db.Base):
 
 class CompletedTransfer(db.Base):
     """
-    Class's information will be added here!
+    Stores a record of a successfuly completed transfer.
     """
 
     __tablename__ = "completed_transfers"
@@ -238,4 +238,4 @@ class CompletedTransfer(db.Base):
 
     bytes_transferred = db.Column(db.BigInteger, nullable=False)
 
-    effective_bandwidth_mbps = db.Column(db.Integer, nullable=False)
+    effective_bandwidth_bps = db.Column(db.Integer, nullable=False)

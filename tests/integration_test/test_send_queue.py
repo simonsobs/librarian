@@ -31,7 +31,6 @@ class NoCopyAsyncTransferManager(CoreAsyncTransferManager):
     def fail_transfer(self, settings):
         return True
 
-    # Adding a new method
     def complete_transfer(self):
         return None
 
@@ -814,7 +813,7 @@ def test_local_transfer_creates_completion_record(
             completion_record.bytes_transferred
             == Path(transfer.source_path).stat().st_size
         )
-        assert completion_record.effective_bandwidth_mbps > 0
+        assert completion_record.effective_bandwidth_bps > 0
 
         print(
             f"\n Success! CompletedTransfer record created with ID: {completion_record.id}"

@@ -10,9 +10,10 @@ from socket import gethostname
 
 from hera_librarian.transfer import TransferStatus
 
+from hera_librarian.utils import get_size_from_path
+
 from .core import CoreAsyncTransferManager
 
-# importing other libraries
 import time
 from datetime import datetime, timezone
 from typing import Optional
@@ -24,25 +25,17 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
     transfer_attempted: bool = False
     transfer_complete: bool = False
 
-    # Adding the transfer attributes
-    start_time_transfer: Optional[float] = None
+    # Attributes to store performance metrics for the completion report
+    start_time_transfer: Optional[datetime] = None
     bytes_transfer: Optional[int] = None
 
     def batch_transfer(self, paths: list[tuple[Path]], settings: "ServerSettings"):
-        # Begin initialization of time and total bytes
-        self.start_time_transfer = time.time()
-        total_bytes = 0
-
-        for local_path, _ in paths:
-            if local_path.is_dir():
-                total_bytes += sum(
-                    f.stat().st_size for f in local_path.glob("**/*") if f.is_file()
-                )
-            else:
-                total_bytes += local_path.stat().st_size
+        # Initialization of time and total bytes
+        self.start_time_transfer = datetime.now(timezone.utc)
+        # Use the existing utility function to calculate the total size
+        total_bytes = sum(get_size_from_path(local_path) for local_path, _ in paths)
 
         self.bytes_transfer = total_bytes
-        # End of initializations
 
         copy_success = True
 
@@ -159,27 +152,25 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
             return None
 
         # 2. Calculate performance metrics from the recorded data
-        end_time = time.time()
-        duration_seconds = end_time - self.start_time_transfer
+        end_time = datetime.now(timezone.utc)
+        duration_seconds = (end_time - self.start_time_transfer).total_seconds()
         total_bytes = self.bytes_transfer
 
         if duration_seconds > 0:
-            bandwidth_mbps = (total_bytes * 8) / (duration_seconds * 1_000_000)
+            bandwidth_bps = total_bytes / duration_seconds
         else:
-            bandwidth_mbps = -1
+            bandwidth_bps = 0
 
         # 3. Create and return the report dictionary
         transfer_report = {
             "task_id": f"local_{end_time}",
             "source_endpoint_id": gethostname(),
             "destination_endpoint_id": gethostname(),
-            "start_time": datetime.fromtimestamp(
-                self.start_time_transfer, tz=timezone.utc
-            ),
-            "end_time": datetime.fromtimestamp(end_time, tz=timezone.utc),
+            "start_time": self.start_time_transfer,
+            "end_time": end_time,
             "duration_seconds": duration_seconds,
             "bytes_transferred": total_bytes,
-            "effective_bandwidth_mbps": round(bandwidth_mbps, 2),
+            "effective_bandwidth_bps": bandwidth_bps,
         }
 
         return transfer_report

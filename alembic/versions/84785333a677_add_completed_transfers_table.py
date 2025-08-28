@@ -26,13 +26,11 @@ def upgrade():
         sa.Column("task_id", sa.String(length=256), nullable=False),
         sa.Column("source_endpoint_id", sa.String(length=256), nullable=False),
         sa.Column("destination_endpoint_id", sa.String(length=256), nullable=False),
-        # --- Added missing columns ---
         sa.Column("start_time", sa.DateTime(), nullable=False),
         sa.Column("end_time", sa.DateTime(), nullable=False),
-        # ---
         sa.Column("duration_seconds", sa.Float(), nullable=False),
         sa.Column("bytes_transferred", sa.BigInteger(), nullable=False),
-        sa.Column("effective_bandwidth_mbps", sa.Float(), nullable=False),
+        sa.Column("effective_bandwidth_bps", sa.Float(), nullable=False),
         sa.ForeignKeyConstraint(
             ["id"],
             ["send_queue.id"],
