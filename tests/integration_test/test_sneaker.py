@@ -22,7 +22,7 @@ def test_sneakernet_workflow(
     # Representing the source in this test:
     # server, admin_client, librarian_database_session_maker
 
-    # We have to have it this way aruond because we need to be able
+    # We have to have it this way around because we need to be able
     # to make a callback to the source server, and we don't have
     # a mocking capability for that yet.
 
