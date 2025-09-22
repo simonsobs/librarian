@@ -56,6 +56,10 @@ from .models.errors import (
 )
 from .models.ping import PingRequest, PingResponse
 from .models.search import FileSearchRequest, FileSearchResponse, FileSearchResponses
+from .models.transfers import (
+    LibrarianTransfersStatusRequest,
+    LibrarianTransfersStatusResponse,
+)
 from .models.uploads import (
     UploadCompletionRequest,
     UploadInitiationRequest,
@@ -74,10 +78,6 @@ from .models.validate import (
     FileValidationRequest,
     FileValidationResponse,
     FileValidationResponseItem,
-)
-from .models.transfers import (
-    LibrarianTransfersStatusRequest,
-    LibrarianTransfersStatusResponse,
 )
 from .settings import ClientInfo
 from .utils import (
@@ -589,7 +589,6 @@ class LibrarianClient:
                 raise e
 
         return response.transfers_enabled
-
 
 
 class AdminClient(LibrarianClient):
@@ -1388,7 +1387,7 @@ class AdminClient(LibrarianClient):
 
         try:
             response = self.post(
-                endpoint="admin/librarians/transfer_status/set",
+                endpoint="admin/librarians/transfer_status/change",
                 request=AdminChangeLibrarianTransferStatusRequest(
                     librarian_name=librarian_name,
                     transfers_enabled=transfers_enabled,

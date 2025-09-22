@@ -91,6 +91,42 @@ def test_server(tmp_path_factory):
             os.environ[env_var] = env_vars[env_var]
 
 
+@pytest.fixture(scope="session")
+def test_server_disable(tmp_path_factory):
+    """
+    Starts a single 'server' using the test client.
+    """
+
+    setup = server_setup(tmp_path_factory, name="test_server_disable")
+
+    env_vars = {x: None for x in setup.env.keys()}
+
+    for env_var in list(env_vars.keys()):
+        env_vars[env_var] = os.environ.get(env_var, None)
+        if setup.env[env_var] is not None:
+            os.environ[env_var] = setup.env[env_var]
+
+    global DATABASE_PATH
+    DATABASE_PATH = str(setup.database)
+
+    # Before starting, create the DB schema
+    run([sys.executable, shutil.which("librarian-server-setup")], env=setup.env)
+
+    import librarian_server
+    import librarian_server.database
+
+    app = librarian_server.main()
+    get_session = librarian_server.database.get_session
+
+    yield app, get_session, setup
+
+    for env_var in list(env_vars.keys()):
+        if env_vars[env_var] is None:
+            del os.environ[env_var]
+        else:
+            os.environ[env_var] = env_vars[env_var]
+
+
 def create_test_client(test_server, username="admin", password="password"):
     app, session, setup = test_server
 

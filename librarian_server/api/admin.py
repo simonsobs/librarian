@@ -588,7 +588,7 @@ def delete_local_instance(
 
 @router.post(
     path="/librarians/transfer_status/change",
-    response_model=AdminLibrarianTransferStatusResponse,
+    response_model=AdminLibrarianTransferStatusResponse | AdminRequestFailedResponse,
 )
 def change_librarian_transfer_status(
     request: AdminChangeLibrarianTransferStatusRequest,
@@ -603,6 +603,12 @@ def change_librarian_transfer_status(
 
     librarian = (
         session.query(Librarian).filter_by(name=request.librarian_name).one_or_none()
+    )
+
+    log.info(
+        f"Request from {user.username} to change transfer status of librarian "
+        f"{request.librarian_name} to {request.transfers_enabled}. "
+        f"Librarian found: {librarian}"
     )
 
     if librarian is None:
