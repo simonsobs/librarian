@@ -12,11 +12,10 @@ from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 
 from .core import CoreAsyncTransferManager
 
-# importing new libraries for the complete transfers
 from datetime import datetime
 from typing import Optional
-from globus_sdk.authorizers import GlobusAuthorizer
 from loguru import logger
+from hera_librarian.models.transfer import CompletedTransferCore
 
 
 class GlobusAsyncTransferManager(CoreAsyncTransferManager):
@@ -386,21 +385,25 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             return False
         return True
 
-    def complete_transfer(self, settings: "ServerSettings") -> dict | None:
+    def gather_transfer_details(
+        self, settings: "ServerSettings"
+    ) -> CompletedTransferCore | None:
         """
         Gathers details about a completed transfer from Globus and
-        returns them in a dictionary.
+        returns them in a Pydantic object.
         """
 
         if self.authorizer is None:
-            logger.debug("--> No authorizer provided, attempting internal authorization...")
+            logger.debug(
+                "--> No authorizer provided, attempting internal authorization..."
+            )
             self.authorizer = self.authorize(settings=settings)
 
         if not self.authorizer:
-            logger.error("Authorization failed.")
+            logger.error("Authorization failed")
             return None
 
-        logger.debug("Authorization successful.")
+        logger.debug("Authorization successful")
 
         transfer_client = globus_sdk.TransferClient(authorizer=self.authorizer)
 
@@ -416,32 +419,27 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             logger.warning(f"Task status is not SUCCEEDED.")
             return None
 
-        # Calculate duration and bandwidth
-        bytes_transferred = task_doc["bytes_transferred"]
         start_time = datetime.fromisoformat(task_doc["request_time"])
         end_time = datetime.fromisoformat(task_doc["completion_time"])
+        bytes_transferred = task_doc["bytes_transferred"]
+        bandwidth_bps = task_doc["effective_bytes_per_second"]
 
         duration = end_time - start_time
         duration_seconds = duration.total_seconds()
 
-        if duration_seconds > 0:
-            bandwidth_bps = bytes_transferred / duration_seconds
-        else:
-            # Handle the zero-duration case
-            bandwidth_mbps = 0.0
-
         try:
-            transfer_report = {
-                "task_id": task_doc["task_id"],
-                "source_endpoint_id": task_doc["source_endpoint_id"],
-                "destination_endpoint_id": task_doc["destination_endpoint_id"],
-                "start_time": start_time,
-                "end_time": end_time,
-                "duration_seconds": duration_seconds,
-                "bytes_transferred": bytes_transferred,
-                "effective_bandwidth_mbps": bandwidth_mbps,
-            }
+            transfer_record = CompletedTransferCore(
+                task_id=task_doc["task_id"],
+                source_endpoint_id=task_doc["source_endpoint_id"],
+                destination_endpoint_id=task_doc["destination_endpoint_id"],
+                start_time=start_time,
+                end_time=end_time,
+                duration_seconds=duration_seconds,
+                bytes_transferred=bytes_transferred,
+                effective_bandwidth_mbps=bandwidth_bps,
+            )
+            return transfer_record
         except (KeyError, ValueError) as e:
-            logger.error(f"Missing key or malformed value: {e} related to task {self.task_id}")
-
-        return transfer_report
+            logger.error(
+                f"Missing key or malformed value: {e} related to task {self.task_id}"
+            )

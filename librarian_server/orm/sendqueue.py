@@ -211,31 +211,3 @@ class SendQueue(db.Base):
         session.commit()
 
         return response
-
-
-class CompletedTransfer(db.Base):
-    """
-    Stores a record of a successfuly completed transfer.
-    """
-
-    __tablename__ = "completed_transfers"
-
-    id = db.Column(db.Integer, db.ForeignKey("send_queue.id"), primary_key=True)
-
-    send_queue = db.relationship("SendQueue", back_populates="completed_record")
-
-    task_id = db.Column(db.String(256), nullable=False, unique=True)
-
-    source_endpoint_id = db.Column(db.String(256), nullable=False)
-
-    destination_endpoint_id = db.Column(db.String(256), nullable=False)
-
-    start_time = db.Column(db.DateTime, nullable=False)
-
-    end_time = db.Column(db.DateTime, nullable=False)
-
-    duration_seconds = db.Column(db.Integer, nullable=False)
-
-    bytes_transferred = db.Column(db.BigInteger, nullable=False)
-
-    effective_bandwidth_bps = db.Column(db.Integer, nullable=False)
