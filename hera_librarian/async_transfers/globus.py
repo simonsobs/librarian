@@ -394,9 +394,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         """
 
         if self.authorizer is None:
-            logger.debug(
-                "--> No authorizer provided, attempting internal authorization..."
-            )
+            logger.debug("Authorizer provided, attempting internal authorization")
             self.authorizer = self.authorize(settings=settings)
 
         if not self.authorizer:
@@ -408,7 +406,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         transfer_client = globus_sdk.TransferClient(authorizer=self.authorizer)
 
         try:
-            logger.debug(f"--> Fetching task details for ID: {self.task_id}")
+            logger.debug(f"Fetching task details for ID: {self.task_id}")
             task_doc = transfer_client.get_task(self.task_id)
             logger.debug(f"Task data fetched. Status is: {task_doc['status']}")
         except globus_sdk.TransferAPIError as e:
@@ -436,7 +434,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 end_time=end_time,
                 duration_seconds=duration_seconds,
                 bytes_transferred=bytes_transferred,
-                effective_bandwidth_mbps=bandwidth_bps,
+                effective_bandwidth_bps=bandwidth_bps,
             )
             return transfer_record
         except (KeyError, ValueError) as e:

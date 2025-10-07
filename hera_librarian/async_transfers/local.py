@@ -152,7 +152,7 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
         """
         # Check if the transfer metrics were recorded
         if self.start_time_transfer is None or self.bytes_transfer is None:
-            logger.error("Error: Transfer metrics were not recorded")
+            logger.error("Transfer metrics were not recorded")
             return None
 
         # Calculate performance metrics from the recorded data
