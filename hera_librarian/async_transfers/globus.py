@@ -151,6 +151,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             notify_on_succeeded=False,
             skip_source_errors=False,
             fail_on_quota_errors=True,
+            encrypt_data=True,
         )
 
         return transfer_data
