@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM python:3.13
 
 COPY . librarian
 RUN pip install --no-cache-dir --upgrade ./librarian
