@@ -174,6 +174,7 @@ class ServerSettings(BaseSettings):
     globus_client_native_app: bool = False
     globus_local_endpoint_id: str = ""
     globus_local_root: str | None = None
+    globus_encrypt_transfers: bool = True
 
     globus_client_secret: Optional[str] = None
     globus_client_secret_file: Optional[Path] = None
