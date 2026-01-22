@@ -25,10 +25,9 @@ dependencies = [
     "sqlalchemy >= 2",
     "sysrsync == 1.1.1",
     "uvicorn",
-    "asyncer==0.0.8",
+    "asyncer==0.0.12",
     "loguru",
     "notifiers",
-    "sniffio>=1.3.1",
 ]
 authors = [
     {name = "Josh Borrow"},
@@ -62,6 +61,7 @@ dev = [
     "coverage",
     "pytest-cov",
     "pytest-xprocess",
+    "pre-commit",
 ]
 postgres = [
     "psycopg[binary,pool]",
