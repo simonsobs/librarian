@@ -91,7 +91,7 @@ def validate_staging(
         )
 
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status.HTTP_413_CONTENT_TOO_LARGE,
             detail=CloneFailedResponse(
                 reason="No stores available for upload. Your upload is too large.",
                 suggested_remedy="Check that the disk is not full.",

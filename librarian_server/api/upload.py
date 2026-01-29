@@ -63,7 +63,7 @@ def stage(
 
     if request.upload_size > server_settings.maximal_upload_size_bytes:
         log.debug("Upload size is too large. Returning error.")
-        response.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        response.status_code = status.HTTP_413_CONTENT_TOO_LARGE
         return UploadFailedResponse(
             reason="Upload size is too large.",
             suggested_remedy=(
@@ -144,7 +144,7 @@ def stage(
         log.debug(
             "No stores available for upload, they are all full!. Returning error."
         )
-        response.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+        response.status_code = status.HTTP_413_CONTENT_TOO_LARGE
 
         # Fail the transfer
         transfer.status = TransferStatus.FAILED
