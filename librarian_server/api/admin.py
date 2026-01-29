@@ -8,7 +8,6 @@ actually ingesting files).
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from hera_librarian.deletion import DeletionPolicy

@@ -5,7 +5,7 @@ Models for cloning to a remote librarian.
 from pathlib import Path
 from typing import Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from hera_librarian.async_transfers import (
     GlobusAsyncTransferManager,

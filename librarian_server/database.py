@@ -2,6 +2,12 @@
 Core database runner for SQLAlchemy.
 """
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+
+from .logger import log
+from .settings import server_settings
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -14,10 +20,6 @@ from sqlalchemy import (
     String,
     create_engine,
 )
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-
-from .logger import log
-from .settings import server_settings
 
 log.info("Starting database engine.")
 

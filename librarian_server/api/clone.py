@@ -64,7 +64,7 @@ def validate_staging(
     """
     # Figure out which store to use.
     if upload_size < 0:
-        log.debug(f"Upload size is negative. Returning error.")
+        log.debug("Upload size is negative. Returning error.")
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail=CloneFailedResponse(
@@ -87,11 +87,11 @@ def validate_staging(
 
     if use_store is None:
         log.debug(
-            f"No stores available for upload, they are all full!. Returning error."
+            "No stores available for upload, they are all full!. Returning error."
         )
 
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status.HTTP_413_CONTENT_TOO_LARGE,
             detail=CloneFailedResponse(
                 reason="No stores available for upload. Your upload is too large.",
                 suggested_remedy="Check that the disk is not full.",
@@ -163,7 +163,7 @@ def de_duplicate_file_and_transfer(
         )
 
         if existing_transfer.status == TransferStatus.ONGOING:
-            log.info(f"Found existing transfer with status ONGOING. Returning error.")
+            log.info("Found existing transfer with status ONGOING. Returning error.")
 
             raise HTTPException(
                 status.HTTP_425_TOO_EARLY,

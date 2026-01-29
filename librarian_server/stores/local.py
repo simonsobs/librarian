@@ -76,7 +76,7 @@ class LocalStore(CoreStore):
         # Check if the file is validly in our staging area. Someone
         # could pass us ../../../../../../etc/passwd or something.
 
-        if not (self.staging_path.resolve() in complete_path.parents):
+        if self.staging_path.resolve() not in complete_path.parents:
             raise ValueError(f"Provided path {path} resolves outside staging area.")
 
         return complete_path
@@ -87,7 +87,7 @@ class LocalStore(CoreStore):
         else:
             complete_path = path.resolve()
 
-        if not (self.store_path.resolve() in complete_path.parents):
+        if self.store_path.resolve() not in complete_path.parents:
             raise ValueError(f"Provided path {path} resolves outside store area.")
 
         return complete_path

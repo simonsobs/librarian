@@ -23,7 +23,6 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from hera_librarian.async_transfers import CoreAsyncTransferManager
-from hera_librarian.errors import ErrorCategory, ErrorSeverity
 from hera_librarian.exceptions import LibrarianError
 from hera_librarian.models.checkin import CheckinUpdateRequest, CheckinUpdateResponse
 from hera_librarian.transfer import TransferStatus
@@ -72,6 +71,13 @@ class SendQueue(db.Base):
 
     failed: bool = db.Column(db.Boolean, default=False)
     "Whether this queue item failed, and that is the reason for completed status."
+
+    completed_record = db.relationship(
+        "CompletedTransfer",
+        uselist=False,
+        back_populates="send_queue",
+        cascade="all, delete-orphan",
+    )
 
     @classmethod
     def new_item(

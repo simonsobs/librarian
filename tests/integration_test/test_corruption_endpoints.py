@@ -81,7 +81,6 @@ def test_fix_missing_file(
         session.commit()
 
     # Now use the repair tasks to ask for copies of those files!
-    from hera_librarian.client import AdminClient
     from hera_librarian.models.corrupt import (
         CorruptionPreparationRequest,
         CorruptionPreparationResponse,

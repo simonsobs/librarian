@@ -9,7 +9,6 @@ from typing import Any
 
 from fastapi.applications import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.orm.session import Session
 
 from hera_librarian.models.uploads import (
     UploadCompletionRequest,

@@ -208,7 +208,7 @@ def test_recover_from_disaster(
             assert transfer.status == TransferStatus.COMPLETED
 
     if missing_files != []:
-        raise ValueError(f"Missing files: " + str(missing_files))
+        raise ValueError("Missing files: " + str(missing_files))
     else:
         print("All files copied successfully.")
 

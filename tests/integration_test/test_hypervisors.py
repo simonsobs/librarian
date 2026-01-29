@@ -232,7 +232,7 @@ def test_remote_instance_duplicate(
 
             for ri in file.remote_instances:
                 assert ri.id in ids_to_keep
-                assert not ri.id in ids_to_delete
+                assert ri.id not in ids_to_delete
 
                 session.delete(ri)
 

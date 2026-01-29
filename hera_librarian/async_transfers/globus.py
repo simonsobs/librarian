@@ -3,10 +3,13 @@ A transfer manager for Globus transfers.
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import globus_sdk
+from loguru import logger
 
+from hera_librarian.models.transfer import CompletedTransferCore
 from hera_librarian.transfer import TransferStatus
 from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 
@@ -91,7 +94,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 authorizer = globus_sdk.RefreshTokenAuthorizer(
                     refresh_token=settings.globus_client_secret, auth_client=client
                 )
-            except globus_sdk.AuthAPIError as e:
+            except globus_sdk.AuthAPIError:
                 return None
         else:
             try:
@@ -107,7 +110,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 authorizer = globus_sdk.AccessTokenAuthorizer(
                     access_token=transfer_token
                 )
-            except globus_sdk.AuthAPIError as e:
+            except globus_sdk.AuthAPIError:
                 return None
 
         return authorizer
@@ -214,10 +217,11 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         # try to submit the task
         try:
             task_doc = transfer_client.submit_transfer(transfer_data)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
 
         self.task_id = task_doc["task_id"]
+
         return True
 
     def batch_transfer(
@@ -285,7 +289,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         # submit the transfer
         try:
             task_doc = transfer_client.submit_transfer(transfer_data)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
 
         self.task_id = task_doc["task_id"]
@@ -377,6 +381,63 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
 
         try:
             _ = transfer_client.cancel_task(self.task_id)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
         return True
+
+    def gather_transfer_details(
+        self, settings: "ServerSettings"
+    ) -> CompletedTransferCore | None:
+        """
+        Gathers details about a completed transfer from Globus and
+        returns them in a Pydantic object.
+        """
+
+        if self.authorizer is None:
+            logger.debug("Authorizer not provided, attempting internal authorization")
+            self.authorizer = self.authorize(settings=settings)
+
+        if not self.authorizer:
+            logger.error("Authorization failed")
+            return None
+
+        logger.debug("Authorization successful")
+
+        transfer_client = globus_sdk.TransferClient(authorizer=self.authorizer)
+
+        try:
+            logger.debug(f"Fetching task details for ID: {self.task_id}")
+            task_doc = transfer_client.get_task(self.task_id)
+            logger.debug(f"Task data fetched. Status is: {task_doc['status']}")
+        except globus_sdk.TransferAPIError as e:
+            logger.error(f"Globus API Error when fetching task: {e}")
+            return None
+
+        if task_doc["status"] != "SUCCEEDED":
+            logger.warning("Task status is not SUCCEEDED.")
+            return None
+
+        start_time = datetime.fromisoformat(task_doc["request_time"])
+        end_time = datetime.fromisoformat(task_doc["completion_time"])
+        bytes_transferred = task_doc["bytes_transferred"]
+        bandwidth_bps = task_doc["effective_bytes_per_second"]
+
+        duration = end_time - start_time
+        duration_seconds = duration.total_seconds()
+
+        try:
+            transfer_record = CompletedTransferCore(
+                task_id=task_doc["task_id"],
+                source_endpoint_id=task_doc["source_endpoint_id"],
+                destination_endpoint_id=task_doc["destination_endpoint_id"],
+                start_time=start_time,
+                end_time=end_time,
+                duration_seconds=duration_seconds,
+                bytes_transferred=bytes_transferred,
+                effective_bandwidth_bps=bandwidth_bps,
+            )
+            return transfer_record
+        except (KeyError, ValueError) as e:
+            logger.error(
+                f"Missing key or malformed value: {e} related to task {self.task_id}"
+            )

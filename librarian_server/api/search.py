@@ -83,7 +83,7 @@ def file(
     results = session.execute(query).scalars().all()
 
     if len(results) == 0:
-        log.debug(f"No files found. Returning error.")
+        log.debug("No files found. Returning error.")
         response.status_code = status.HTTP_404_NOT_FOUND
         return FileSearchFailedResponse(
             reason="No files found.",
@@ -177,7 +177,7 @@ def error(
     results = session.execute(query).scalars().all()
 
     if len(results) == 0:
-        log.debug(f"No errors found. Returning 'error'.")
+        log.debug("No errors found. Returning 'error'.")
         response.status_code = status.HTTP_404_NOT_FOUND
         return ErrorSearchFailedResponse(
             reason="No errors found.",

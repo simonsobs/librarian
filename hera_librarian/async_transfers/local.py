@@ -5,10 +5,14 @@ The local async transfer manager.
 import copy
 import os
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from socket import gethostname
+from typing import Optional
 
+from hera_librarian.models.transfer import CompletedTransferCore
 from hera_librarian.transfer import TransferStatus
+from hera_librarian.utils import get_size_from_path
 
 from .core import CoreAsyncTransferManager
 
@@ -19,7 +23,18 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
     transfer_attempted: bool = False
     transfer_complete: bool = False
 
+    # Attributes to store performance metrics for the completion report
+    start_time_transfer: Optional[datetime] = None
+    bytes_transfer: Optional[int] = None
+
     def batch_transfer(self, paths: list[tuple[Path]], settings: "ServerSettings"):
+        # Initialization of time and total bytes
+        self.start_time_transfer = datetime.now(timezone.utc)
+        # Use the existing utility function to calculate the total size
+        total_bytes = sum(get_size_from_path(local_path) for local_path, _ in paths)
+
+        self.bytes_transfer = total_bytes
+
         copy_success = True
 
         for local_path, remote_path in paths:
@@ -126,3 +141,40 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
 
     def fail_transfer(self, settings: "ServerSettings") -> bool:
         return True
+
+    def gather_transfer_details(self) -> CompletedTransferCore | None:
+        """
+        Gathers details about a locall completed transfer and
+        returns them in a CompletedTransferCore Pydantic Object
+        """
+        # Check if the transfer metrics were recorded
+        if self.start_time_transfer is None or self.bytes_transfer is None:
+            logger.error("Transfer metrics were not recorded")
+            return None
+
+        # Calculate performance metrics from the recorded data
+        end_time = datetime.now(timezone.utc)
+        duration_seconds = (end_time - self.start_time_transfer).total_seconds()
+        total_bytes = self.bytes_transfer
+
+        if duration_seconds > 0:
+            duration_seconds = 1
+
+        bandwidth_bps = total_bytes / duration_seconds
+
+        try:
+            transfer_record = CompletedTransferCore(
+                task_id=f"local_{end_time}",
+                source_endpoint_id=gethostname(),
+                destination_endpoint_id=gethostname(),
+                start_time=self.start_time_transfer,
+                end_time=end_time,
+                duration_seconds=duration_seconds,
+                bytes_transferred=total_bytes,
+                effective_bandwidth_bps=bandwidth_bps,
+            )
+            return transfer_record
+        except (KeyError, ValueError) as e:
+            logger.error(
+                f"Failed to create transfer report object due to a data validation error: {e}"
+            )

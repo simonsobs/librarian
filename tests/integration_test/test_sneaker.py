@@ -5,8 +5,6 @@ A full integration test of a sneakernet workflow.
 import random
 from pathlib import Path
 
-from hera_librarian.exceptions import LibrarianError
-
 
 def test_sneakernet_workflow(
     test_server_with_many_files_and_errors,
@@ -76,6 +74,18 @@ def test_sneakernet_workflow(
         mark_local_instances_as_unavailable=True,
     )
 
+    original_manifest = admin_client.get_store_manifest(
+        "local_store",
+        create_outgoing_transfers=False,
+        destination_librarian="test_server",
+        disable_store=False,
+        mark_local_instances_as_unavailable=False,
+    )
+
+
+    if not manifest.store_files:
+        raise ValueError("Manifest is empty")
+
     # Now we can use the manifest to ingest the files into the destination librarian.
     ingested_entries = []
 
@@ -109,6 +119,9 @@ def test_sneakernet_workflow(
         )
 
         ingested_entries.append(entry)
+
+    if not ingested_entries:
+        raise ValueError("No entries actually ingested into store")
 
     # Now we need to run the ingest job on the destination server.
     from librarian_background.recieve_clone import RecieveClone

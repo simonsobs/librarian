@@ -26,6 +26,9 @@ from librarian_server.settings import server_settings
 
 from .task import Task
 
+from librarian_server.orm.completed_transfer import CompletedTransfer
+
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -214,6 +217,23 @@ def check_on_consumed(
                     current_status=current_status,
                 )
                 continue
+
+            # If the transfer is complete, generate and save the performance report.
+            # This works for both local and globus transfers.
+            if current_status == TransferStatus.COMPLETED:
+                report_core_model = (
+                    queue_item.async_transfer_manager.gather_transfer_details()
+                )
+
+                if report_core_model:
+                    logger.info(
+                        "Creating completion record for queue item {q.id}", q=queue_item
+                    )
+                    # use the classmethod to create the ORM object.
+                    completed_record = CompletedTransfer.from_core(
+                        core=report_core_model, queue_id=queue_item.id
+                    )
+                    session.add(completed_record)
 
             # If we got down here, we can mark the transfer as consumed.
             logger.info("Marking {q.id} as completed", q=queue_item)

@@ -12,8 +12,6 @@ from hera_librarian.exceptions import LibrarianHTTPError
 
 from .. import database as db
 from ..encryption import decrypt_string, encrypt_string
-from ..logger import log
-from ..settings import server_settings
 
 
 class Librarian(db.Base):

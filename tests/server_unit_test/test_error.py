@@ -2,7 +2,6 @@
 Tests we can log errors.
 """
 
-from hera_librarian.errors import ErrorCategory, ErrorSeverity
 from hera_librarian.models.errors import (
     ErrorClearRequest,
     ErrorClearResponse,

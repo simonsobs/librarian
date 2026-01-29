@@ -395,7 +395,7 @@ def call_destination_and_state_ongoing(send: SendQueue, session: Session):
             send=send.id,
             e=e,
         )
-    except LibrarianError as e:
+    except LibrarianError:
         # Can't call up downstream librarian. Already been called in.
         pass
 
@@ -593,7 +593,7 @@ class SendClone(Task):
 
         try:
             client.ping()
-        except Exception as e:
+        except Exception:
             logger.warning(
                 "Librarian {dest} is unreachable. Skipping sending clones for now",
                 dest=self.destination_librarian,

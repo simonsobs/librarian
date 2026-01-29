@@ -4,7 +4,6 @@ Tests for admin endpoints.
 
 import shutil
 
-from hera_librarian.deletion import DeletionPolicy
 from hera_librarian.models.admin import (
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
@@ -22,7 +21,7 @@ from hera_librarian.models.admin import (
     AdminStoreStateChangeRequest,
     AdminStoreStateChangeResponse,
 )
-from hera_librarian.utils import get_checksum_from_path, get_size_from_path
+from hera_librarian.utils import get_checksum_from_path
 
 
 def test_add_file(test_client, test_server, garbage_file, test_orm):

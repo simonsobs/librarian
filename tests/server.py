@@ -3,7 +3,6 @@
 """
 
 import json
-import os
 import random
 import shutil
 import socket
@@ -172,7 +171,7 @@ def server_setup(tmp_path_factory, name="librarian_server") -> Server:
             "store_data": {
                 "staging_path": str(staging_directory_sneaker),
                 "store_path": str(store_directory_sneaker),
-                "report_full_fraction": 0.9,
+                "report_full_fraction": 0.99,
             },
             "transfer_manager_data": {
                 "local": {

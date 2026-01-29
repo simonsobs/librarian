@@ -3,7 +3,6 @@ Unit tests for the RecieveClone background task.
 """
 
 import shutil
-from pathlib import Path
 
 
 def test_recieve_clone_with_valid_no_clones(test_client, test_server, test_orm):

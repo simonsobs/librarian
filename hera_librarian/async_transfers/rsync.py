@@ -43,7 +43,7 @@ class RsyncAsyncTransferManager(CoreAsyncTransferManager):
             )
 
             return True
-        except sysrsync.RsyncError as e:
+        except sysrsync.RsyncError:
             return False
 
     def batch_transfer(self, paths: list[tuple[Path]], settings: "ServerSettings"):

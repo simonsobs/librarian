@@ -5,9 +5,9 @@ Models for uploads.
 from pathlib import Path
 from typing import Union
 
-from pydantic import BaseModel, SerializeAsAny, field_validator
+from pydantic import BaseModel
 
-from ..transfers import CoreTransferManager, LocalTransferManager
+from ..transfers import LocalTransferManager
 
 
 class UploadInitiationRequest(BaseModel):

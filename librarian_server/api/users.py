@@ -5,10 +5,7 @@ Obviously, you need admin permissions to use these endpoints, except
 the self-password change.
 """
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,8 +23,7 @@ from hera_librarian.models.users import (
 from ..database import yield_session
 from ..logger import log
 from ..orm.user import User
-from ..settings import server_settings
-from .auth import AdminUserDependency, ReadonlyUserDependency, UnauthorizedError
+from .auth import AdminUserDependency, ReadonlyUserDependency
 
 router = APIRouter(prefix="/api/v2/users")
 

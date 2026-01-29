@@ -4,13 +4,9 @@ Endpoints for the API that allows the control of errors.
 For searching errors, see /search.py.
 """
 
-from datetime import datetime
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
-from hera_librarian.errors import ErrorCategory, ErrorSeverity
 from hera_librarian.models.errors import (
     ErrorClearRequest,
     ErrorClearResponse,
