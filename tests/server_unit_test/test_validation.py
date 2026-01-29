@@ -3,7 +3,6 @@ Tests the endpoints in librarian_server/api/validate.py.
 """
 
 from hera_librarian.models.validate import (
-    FileValidationFailedResponse,
     FileValidationRequest,
     FileValidationResponse,
     FileValidationResponseItem,

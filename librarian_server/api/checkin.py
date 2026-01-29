@@ -3,8 +3,7 @@ Check in and modify the states of source and destination
 transfers.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from hera_librarian.models.checkin import (
@@ -18,7 +17,7 @@ from librarian_server.orm.transfer import IncomingTransfer, OutgoingTransfer
 
 from ..database import yield_session
 from ..logger import log
-from .auth import CallbackUserDependency, ReadappendUserDependency, User
+from .auth import CallbackUserDependency, User
 
 router = APIRouter(prefix="/api/v2/checkin")
 

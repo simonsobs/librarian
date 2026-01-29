@@ -337,7 +337,7 @@ def test_send_from_existing_file_row(
             assert transfer.status == TransferStatus.COMPLETED
 
     if missing_files != []:
-        raise ValueError(f"Missing files: " + str(missing_files))
+        raise ValueError("Missing files: " + str(missing_files))
     else:
         print("All files copied successfully.")
 
@@ -543,8 +543,6 @@ def test_create_send_queue_item_no_transfer_providers(
         password="notfound",
     )
 
-    from librarian_background.send_clone import use_batch_to_call_librarian
-
     with session_maker() as session:
         transfers = []
         outgoing_information = []
@@ -638,8 +636,6 @@ def test_create_send_queue_item_no_availability_of_transfer_manager(
         user="404",
         password="notfound",
     )
-
-    from librarian_background.send_clone import use_batch_to_call_librarian
 
     with session_maker() as session:
         transfers = []
@@ -815,6 +811,5 @@ def test_local_transfer_creates_completion_record(
         )
         assert completion_record.effective_bandwidth_bps > 0
 
-        print(
-            f"\n Success! CompletedTransfer record created with ID: {completion_record.id}"
-        )
+        session.delete(completed_queue_item)
+        session.commit()

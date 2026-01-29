@@ -4,7 +4,6 @@ Shared fixtures amongst all tests.
 
 import datetime
 import hashlib
-import json
 import os
 import random
 import shutil
@@ -18,7 +17,7 @@ from hera_librarian.client import AdminClient
 from hera_librarian.errors import ErrorCategory, ErrorSeverity
 from hera_librarian.exceptions import LibrarianHTTPError
 
-from .server import Server, server_setup
+from .server import server_setup
 
 
 @pytest.fixture

@@ -28,7 +28,6 @@ Other steps to take:
 
 import argparse as ap
 import datetime
-import json
 import sys
 from pathlib import Path
 
@@ -387,7 +386,7 @@ def core_destination(
 
             # That's ok - it must have been present in the backup. We expect
             # some level of overlap!
-            if not potential_transfer is None:
+            if potential_transfer is not None:
                 continue
 
             incoming_transfer = transfer_info.to_transfer(store=store)
@@ -410,7 +409,7 @@ def core_destination(
                 # borked item, in which case we should STOP.
                 potential_file = session.get(File, incoming_transfer.upload_name)
 
-                if not potential_file is None:
+                if potential_file is not None:
                     print(
                         f"WARNING: file {incoming_transfer.upload_name} was already ingested, "
                         f"but the outgoing transfer {transfer_info} was not marked as complete"
@@ -464,7 +463,7 @@ def core_destination(
 
             # That's ok - it must have been present in the backup. We expect
             # some level of overlap!
-            if not potential_file is None:
+            if potential_file is not None:
                 continue
 
             file, instance = file_info.to_file(store=store)

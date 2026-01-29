@@ -8,10 +8,8 @@
 
 import argparse
 import datetime
-import json
 import os
 import sys
-import time
 from pathlib import Path
 from typing import Optional
 
@@ -630,8 +628,8 @@ def get_librarian_list(args):
         librarian_list = client.get_librarian_list().librarians
     except LibrarianHTTPError as e:
         die(f"Unexpected error communicating with the librarian server: {e.reason}")
-    except LibrarianError as e:
-        die(f"You are not authorized to perform this action.")
+    except LibrarianError:
+        die("You are not authorized to perform this action.")
 
     if len(librarian_list) == 0:
         print("No librarians found.")

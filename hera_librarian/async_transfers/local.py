@@ -5,19 +5,16 @@ The local async transfer manager.
 import copy
 import os
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 from socket import gethostname
+from typing import Optional
 
+from hera_librarian.models.transfer import CompletedTransferCore
 from hera_librarian.transfer import TransferStatus
-
 from hera_librarian.utils import get_size_from_path
 
 from .core import CoreAsyncTransferManager
-
-import time
-from datetime import datetime, timezone
-from typing import Optional
-from hera_librarian.models.transfer import CompletedTransferCore
 
 
 class LocalAsyncTransferManager(CoreAsyncTransferManager):

@@ -4,8 +4,6 @@ Tests that we can successfully set up a server.
 
 import requests
 
-from hera_librarian import LibrarianClient
-
 
 def test_server(server):
     """

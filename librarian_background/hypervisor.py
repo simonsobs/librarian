@@ -94,7 +94,7 @@ def handle_stale_outgoing_transfer(
     try:
         client = downstream_librarian.client()
         client.ping()
-    except (LibrarianHTTPError, LibrarianTimeoutError) as e:
+    except (LibrarianHTTPError, LibrarianTimeoutError):
         logger.info(
             "Downstream librarian {} is unreachable, skipping for now",
             downstream_librarian.name,
@@ -215,7 +215,7 @@ def handle_stale_incoming_transfer(
     try:
         client = upstream_librarian.client()
         client.ping()
-    except (LibrarianHTTPError, LibrarianTimeoutError) as e:
+    except (LibrarianHTTPError, LibrarianTimeoutError):
         logger.info(
             "Upstream librarian {} is unreachable, skipping for now",
             upstream_librarian.name,

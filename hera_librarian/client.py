@@ -49,7 +49,6 @@ from .models.admin import (
 from .models.errors import (
     ErrorClearRequest,
     ErrorClearResponse,
-    ErrorSearchFailedResponse,
     ErrorSearchRequest,
     ErrorSearchResponse,
     ErrorSearchResponses,
@@ -76,11 +75,7 @@ from .models.validate import (
     FileValidationResponseItem,
 )
 from .settings import ClientInfo
-from .utils import (
-    get_checksum_from_path,
-    get_hash_function_from_hash,
-    get_size_from_path,
-)
+from .utils import get_checksum_from_path, get_size_from_path
 
 if TYPE_CHECKING:
     from .transfers import CoreTransferManager

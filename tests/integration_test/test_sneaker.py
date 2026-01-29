@@ -5,8 +5,6 @@ A full integration test of a sneakernet workflow.
 import random
 from pathlib import Path
 
-from hera_librarian.exceptions import LibrarianError
-
 
 def test_sneakernet_workflow(
     test_server_with_many_files_and_errors,

@@ -5,9 +5,6 @@ remote instances too.
 """
 
 import asyncio
-import datetime
-from functools import lru_cache
-from pathlib import Path
 from time import perf_counter
 
 from asyncer import asyncify
@@ -15,7 +12,6 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from hera_librarian.errors import ErrorCategory, ErrorSeverity
 from hera_librarian.exceptions import (
     LibrarianError,
     LibrarianHTTPError,
@@ -88,7 +84,7 @@ def calculate_checksum_of_remote_copies(
     try:
         client = librarian.client()
         client.ping()
-    except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError) as e:
+    except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError):
         log.error(f"Unable to contact downstream librarian {librarian.name}")
         return []
 

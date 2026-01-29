@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from ..server import Server, server_setup
+from ..server import server_setup
 
 DATABASE_PATH = None
 

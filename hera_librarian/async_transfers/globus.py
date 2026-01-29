@@ -3,19 +3,17 @@ A transfer manager for Globus transfers.
 """
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 import globus_sdk
+from loguru import logger
 
+from hera_librarian.models.transfer import CompletedTransferCore
 from hera_librarian.transfer import TransferStatus
 from hera_librarian.utils import GLOBUS_ERROR_EVENTS
 
 from .core import CoreAsyncTransferManager
-
-from datetime import datetime
-from typing import Optional
-from loguru import logger
-from hera_librarian.models.transfer import CompletedTransferCore
 
 
 class GlobusAsyncTransferManager(CoreAsyncTransferManager):
@@ -96,7 +94,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 authorizer = globus_sdk.RefreshTokenAuthorizer(
                     refresh_token=settings.globus_client_secret, auth_client=client
                 )
-            except globus_sdk.AuthAPIError as e:
+            except globus_sdk.AuthAPIError:
                 return None
         else:
             try:
@@ -112,7 +110,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 authorizer = globus_sdk.AccessTokenAuthorizer(
                     access_token=transfer_token
                 )
-            except globus_sdk.AuthAPIError as e:
+            except globus_sdk.AuthAPIError:
                 return None
 
         return authorizer
@@ -218,10 +216,11 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         # try to submit the task
         try:
             task_doc = transfer_client.submit_transfer(transfer_data)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
 
         self.task_id = task_doc["task_id"]
+
         return True
 
     def batch_transfer(
@@ -289,7 +288,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         # submit the transfer
         try:
             task_doc = transfer_client.submit_transfer(transfer_data)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
 
         self.task_id = task_doc["task_id"]
@@ -381,7 +380,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
 
         try:
             _ = transfer_client.cancel_task(self.task_id)
-        except globus_sdk.TransferAPIError as e:
+        except globus_sdk.TransferAPIError:
             return False
         return True
 
@@ -394,7 +393,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         """
 
         if self.authorizer is None:
-            logger.debug("Authorizer provided, attempting internal authorization")
+            logger.debug("Authorizer not provided, attempting internal authorization")
             self.authorizer = self.authorize(settings=settings)
 
         if not self.authorizer:
@@ -414,7 +413,7 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             return None
 
         if task_doc["status"] != "SUCCEEDED":
-            logger.warning(f"Task status is not SUCCEEDED.")
+            logger.warning("Task status is not SUCCEEDED.")
             return None
 
         start_time = datetime.fromisoformat(task_doc["request_time"])

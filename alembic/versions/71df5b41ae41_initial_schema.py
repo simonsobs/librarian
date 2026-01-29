@@ -14,7 +14,6 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
-import enum
 
 from sqlalchemy import (
     BigInteger,

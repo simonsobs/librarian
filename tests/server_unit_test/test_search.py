@@ -14,7 +14,6 @@ from hera_librarian.models.errors import (
 from hera_librarian.models.search import (
     FileSearchFailedResponse,
     FileSearchRequest,
-    FileSearchResponse,
     FileSearchResponses,
 )
 

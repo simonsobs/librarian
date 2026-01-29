@@ -3,12 +3,10 @@ Pydantic models for the search endpoint.
 """
 
 from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 from pydantic import BaseModel, Field, RootModel
 
-from hera_librarian.deletion import DeletionPolicy
 from hera_librarian.models.instances import (
     InstanceSearchResponse,
     RemoteInstanceSearchResponse,

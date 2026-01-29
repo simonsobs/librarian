@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Response, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from hera_librarian.deletion import DeletionPolicy
@@ -55,7 +54,7 @@ def stage(
 
     # Figure out which store to use.
     if request.upload_size < 0:
-        log.debug(f"Upload size is negative. Returning error.")
+        log.debug("Upload size is negative. Returning error.")
         response.status_code = status.HTTP_400_BAD_REQUEST
         return UploadFailedResponse(
             reason="Upload size must be positive.",
@@ -63,7 +62,7 @@ def stage(
         )
 
     if request.upload_size > server_settings.maximal_upload_size_bytes:
-        log.debug(f"Upload size is too large. Returning error.")
+        log.debug("Upload size is too large. Returning error.")
         response.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         return UploadFailedResponse(
             reason="Upload size is too large.",
@@ -143,7 +142,7 @@ def stage(
 
     if use_store is None:
         log.debug(
-            f"No stores available for upload, they are all full!. Returning error."
+            "No stores available for upload, they are all full!. Returning error."
         )
         response.status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
 
@@ -283,7 +282,7 @@ def commit(
             suggested_remedy="Contact the administrator of this librarian instance.",
         )
 
-    log.debug(f"Returning upload completion response. Upload succeeded.")
+    log.debug("Returning upload completion response. Upload succeeded.")
 
     response.status_code = status.HTTP_200_OK
 

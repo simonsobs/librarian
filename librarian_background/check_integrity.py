@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from hera_librarian.utils import compare_checksums
 from librarian_server.database import get_session
 from librarian_server.orm import Instance, StoreMetadata
-from librarian_server.orm.file import CorruptFile, File
+from librarian_server.orm.file import CorruptFile
 
 from .task import Task
 

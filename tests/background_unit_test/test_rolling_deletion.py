@@ -3,7 +3,7 @@ Tests for the rolling deletion task.
 """
 
 import shutil
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from hera_librarian.deletion import DeletionPolicy

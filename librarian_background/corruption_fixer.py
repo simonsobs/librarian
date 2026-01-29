@@ -2,7 +2,7 @@
 A background task that queries the corrupt files table and remedies them.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from time import perf_counter
 
 from loguru import logger

@@ -28,7 +28,7 @@ def test_database_reconstruction(test_database_reconstruction_server):
             sys.executable,
             shutil.which("librarian-server-rebuild-database"),
             "--directories",
-            f"--store=local_store",
+            "--store=local_store",
             "--directories",
             "--i-know-what-i-am-doing",
         ],
