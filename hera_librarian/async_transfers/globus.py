@@ -337,6 +337,14 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
             if task_doc["status"] == "SUCCEEDED":
                 return TransferStatus.COMPLETED
             elif task_doc["status"] == "FAILED":
+                # Log the error, Globus transfers should not fail.
+                logger.error(
+                    "Task {task_id} failed ({code}: {reason}), {nice_status}",
+                    task_id=task_doc["task_id"],
+                    code=task_doc["fatal_error"]["code"],
+                    reason=task_doc["fatal_error"]["reason"],
+                    nice_status=task_doc["nice_status"],
+                )
                 return TransferStatus.FAILED
             # When there are errors, better fail the task and try again. There is
             # a different check for faults to make the state transition as clear as
@@ -345,6 +353,13 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 task_event_list = transfer_client.task_event_list(self.task_id)
                 for event in task_event_list:
                     if event["code"] in GLOBUS_ERROR_EVENTS and event["is_error"]:
+                        # Log the error, Globus transfers should not fail.
+                        logger.error(
+                            "Task {task_id} failed ({code}), {nice_status}",
+                            task_id=task_doc["task_id"],
+                            code=event["code"],
+                            nice_status=task_doc["nice_status"],
+                        )
                         return TransferStatus.FAILED
                 return TransferStatus.FAILED
             else:  # "status" == "ACTIVE"
