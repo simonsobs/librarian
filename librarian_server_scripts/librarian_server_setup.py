@@ -28,6 +28,7 @@ GRAFANA_TABLES = [
     "remote_instances",
     "send_queue",
     "corrupt_files",
+    "completed_transfers",
 ]
 
 parser = ap.ArgumentParser(

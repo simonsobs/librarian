@@ -38,6 +38,18 @@ def upgrade():
         sa.UniqueConstraint("task_id"),
     )
 
+    if op.get_bind().engine.dialect.has_table(op.get_bind(), "pg_roles"):
+        op.execute(
+            """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'grafanausers') THEN
+                GRANT SELECT ON completed_transfers TO grafanausers;
+            END IF;
+        END $$;
+        """
+        )
+
 
 def downgrade():
     op.drop_table("completed_transfers")
