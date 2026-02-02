@@ -31,7 +31,7 @@ class NoCopyAsyncTransferManager(CoreAsyncTransferManager):
     def fail_transfer(self, settings):
         return True
 
-    def gather_transfer_details(self):
+    def gather_transfer_details(self, settings: "ServerSettings"):
         return None
 
 

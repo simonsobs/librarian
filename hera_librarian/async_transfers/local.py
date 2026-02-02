@@ -142,7 +142,9 @@ class LocalAsyncTransferManager(CoreAsyncTransferManager):
     def fail_transfer(self, settings: "ServerSettings") -> bool:
         return True
 
-    def gather_transfer_details(self) -> CompletedTransferCore | None:
+    def gather_transfer_details(
+        self, settings: "ServerSettings"
+    ) -> CompletedTransferCore | None:
         """
         Gathers details about a locall completed transfer and
         returns them in a CompletedTransferCore Pydantic Object

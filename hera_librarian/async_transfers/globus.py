@@ -341,9 +341,9 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                 logger.error(
                     "Task {task_id} failed ({code}: {reason}), {nice_status}",
                     task_id=task_doc["task_id"],
-                    code=task_doc["fatal_error"]["code"],
-                    reason=task_doc["fatal_error"]["reason"],
-                    nice_status=task_doc["nice_status"],
+                    code=task_doc.get("fatal_error", {}).get("code", None),
+                    reason=task_doc.get("fatal_error", {}).get("description", None),
+                    nice_status=task_doc.get("nice_status", None),
                 )
                 return TransferStatus.FAILED
             # When there are errors, better fail the task and try again. There is
@@ -357,8 +357,8 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
                         logger.error(
                             "Task {task_id} failed ({code}), {nice_status}",
                             task_id=task_doc["task_id"],
-                            code=event["code"],
-                            nice_status=task_doc["nice_status"],
+                            code=event.get["code"],
+                            nice_status=task_doc.get("nice_status", None),
                         )
                         return TransferStatus.FAILED
                 return TransferStatus.FAILED

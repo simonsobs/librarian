@@ -78,3 +78,12 @@ class CoreAsyncTransferManager(BaseModel, abc.ABC):
         Fail the current transfer.
         """
         raise NotImplementedError
+
+    @abc.abstractmethod
+    def gather_transfer_details(
+        self, settings: "ServerSettings"
+    ) -> CompletedTransferCore | None:
+        """
+        Gather details about the transfer for serialization in the database.
+        """
+        raise NotImplementedError

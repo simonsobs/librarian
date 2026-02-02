@@ -20,14 +20,12 @@ from sqlalchemy import func, select
 from hera_librarian.exceptions import LibrarianError
 from hera_librarian.transfer import TransferStatus
 from librarian_server.database import get_session
+from librarian_server.orm.completed_transfer import CompletedTransfer
 from librarian_server.orm.librarian import Librarian
 from librarian_server.orm.sendqueue import SendQueue
 from librarian_server.settings import server_settings
 
 from .task import Task
-
-from librarian_server.orm.completed_transfer import CompletedTransfer
-
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -222,7 +220,9 @@ def check_on_consumed(
             # This works for both local and globus transfers.
             if current_status == TransferStatus.COMPLETED:
                 report_core_model = (
-                    queue_item.async_transfer_manager.gather_transfer_details()
+                    queue_item.async_transfer_manager.gather_transfer_details(
+                        settings=server_settings,
+                    )
                 )
 
                 if report_core_model:

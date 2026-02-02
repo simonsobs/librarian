@@ -74,3 +74,8 @@ class RsyncAsyncTransferManager(CoreAsyncTransferManager):
 
     def fail_transfer(self, settings: "ServerSettings") -> bool:
         return True
+
+    def gather_transfer_details(
+        self, settings: "ServerSettings"
+    ) -> CompletedTransferCore | None:
+        return None
