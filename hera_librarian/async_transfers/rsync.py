@@ -7,6 +7,7 @@ from socket import gethostname
 
 import sysrsync
 
+from hera_librarian.models.transfer import CompletedTransferCore
 from hera_librarian.transfer import TransferStatus
 
 from .core import CoreAsyncTransferManager

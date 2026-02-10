@@ -408,17 +408,17 @@ class GlobusAsyncTransferManager(CoreAsyncTransferManager):
         returns them in a Pydantic object.
         """
 
-        if self.authorizer is None:
+        authorizer = self.authorize(settings=settings)
+        if authorizer is None:
             logger.debug("Authorizer not provided, attempting internal authorization")
-            self.authorizer = self.authorize(settings=settings)
 
-        if not self.authorizer:
+        if not authorizer:
             logger.error("Authorization failed")
             return None
 
         logger.debug("Authorization successful")
 
-        transfer_client = globus_sdk.TransferClient(authorizer=self.authorizer)
+        transfer_client = globus_sdk.TransferClient(authorizer=authorizer)
 
         try:
             logger.debug(f"Fetching task details for ID: {self.task_id}")
