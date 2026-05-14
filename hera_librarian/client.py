@@ -90,8 +90,11 @@ class LibrarianClient:
     port: int
     user: str
     password: str
+    checksum_threads: int = 1
 
-    def __init__(self, host: str, port: int, user: str, password: str):
+    def __init__(
+        self, host: str, port: int, user: str, password: str, checksum_threads: int = 1
+    ):
         """
         Create a new LibrarianClient.
 
@@ -105,6 +108,8 @@ class LibrarianClient:
             The name of the user.
         password : str
             The password of the user.
+        checksum_threads : int
+            The number of threads to use for checksum computation. Default is 1.
         """
 
         if host[-1] == "/":
@@ -115,6 +120,7 @@ class LibrarianClient:
         self.port = port
         self.user = user
         self.password = password
+        self.checksum_threads = checksum_threads
 
     def __repr__(self):
         return f"Librarian Client ({self.user}) for {self.host}:{self.port}"
@@ -394,7 +400,9 @@ class LibrarianClient:
             endpoint="upload/stage",
             request=UploadInitiationRequest(
                 upload_size=get_size_from_path(local_path),
-                upload_checksum=get_checksum_from_path(local_path, threads=1),
+                upload_checksum=get_checksum_from_path(
+                    local_path, threads=self.checksum_threads
+                ),
                 upload_name=dest_path.name,
                 destination_location=dest_path,
                 uploader=self.user,
