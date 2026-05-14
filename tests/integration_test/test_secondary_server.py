@@ -19,7 +19,7 @@ def test_secondary_server_simple(
 
     response = test_client.post(
         "/api/v2/ping",
-        content=PingRequest().model_dump_json(),
+        json=PingRequest().model_dump(),
         auth=("admin", "password"),
     )
 
