@@ -95,19 +95,11 @@ def individual(
 
 
 def _filehash(filepath, hashfunc):
-    hasher = hashfunc()
-    blocksize = 64 * 1024
-
     if not os.path.exists(filepath):
-        return hasher.hexdigest()
+        return hashfunc().hexdigest()
 
     with open(filepath, "rb") as fp:
-        while True:
-            data = fp.read(blocksize)
-            if not data:
-                break
-            hasher.update(data)
-    return hasher.hexdigest()
+        return hashlib.file_digest(fp, hashfunc).hexdigest()
 
 
 def _reduce_hash(hashlist, hashfunc):
