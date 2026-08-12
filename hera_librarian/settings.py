@@ -26,6 +26,10 @@ class ClientInfo(BaseModel):
     "The hostname of this librarian server"
     password: str
     "Your password on this librarian"
+    checksum_threads: int = 1
+    "The number of threads to use for checksum computation. Default is 1."
+    request_timeout_seconds: int | None = 1800
+    "The timeout for requests in seconds. If None, no timeout is set."
 
 
 class ClientSettings(BaseSettings):

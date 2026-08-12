@@ -93,7 +93,13 @@ class LibrarianClient:
     checksum_threads: int = 1
 
     def __init__(
-        self, host: str, port: int, user: str, password: str, checksum_threads: int = 1
+        self,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        checksum_threads: int = 1,
+        request_timeout_seconds: int | None = None,
     ):
         """
         Create a new LibrarianClient.
@@ -110,6 +116,9 @@ class LibrarianClient:
             The password of the user.
         checksum_threads : int
             The number of threads to use for checksum computation. Default is 1.
+        request_timeout_seconds : int | None = 1800
+            The timeout for requests in seconds. If None, no timeout is set, default
+            is 30 minutes.
         """
 
         if host[-1] == "/":
@@ -121,6 +130,7 @@ class LibrarianClient:
         self.user = user
         self.password = password
         self.checksum_threads = checksum_threads
+        self.request_timeout_seconds = request_timeout_seconds
 
     def __repr__(self):
         return f"Librarian Client ({self.user}) for {self.host}:{self.port}"
@@ -230,6 +240,7 @@ class LibrarianClient:
                 data=data,
                 headers={"Content-Type": "application/json"},
                 auth=(self.user, self.password),
+                timeout=self.request_timeout_seconds,
             )
         except (TimeoutError, requests.exceptions.ConnectionError):
             raise LibrarianTimeoutError(url=self.resolve(endpoint))
