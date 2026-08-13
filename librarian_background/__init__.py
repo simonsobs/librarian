@@ -32,6 +32,7 @@ def background(run_once: bool = False):
         + background_settings.duplicate_remote_instance_hypervisor
         + background_settings.rolling_deletion
         + background_settings.corruption_fixer
+        + background_settings.create_archive
     )
 
     for task in all_tasks:

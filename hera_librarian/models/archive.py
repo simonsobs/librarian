@@ -4,14 +4,6 @@ from hera_librarian.models.admin import ManifestEntry
 
 
 class ArchiveManifestRequest(BaseModel):
-    archive_name: str
-    "The name of the archive to get the manifest for."
-
-    maximum_size: int = 0
-    "The maximum size of the archive in bytes."
-
-
-class ArchiveManifestResponse(BaseModel):
     librarian_name: str
     "The name of the librarian that generated this manifest."
 
@@ -23,6 +15,14 @@ class ArchiveManifestResponse(BaseModel):
 
     archive_files: list[ManifestEntry]
     "The files on the archive."
+
+
+class ArchiveManifestResponse(BaseModel):
+    archive_id: str
+    "The ID of the archive to get the manifest for."
+
+    manifest_id: str
+    "The ID of the manifest to get the manifest for."
 
 
 class ArchiveCallbackRequest(BaseModel):
@@ -45,3 +45,11 @@ class ArchiveCallbackResponse(BaseModel):
 
     message: str
     "A message describing the result of the callback."
+
+
+class ArchiveCallbackFailResponse(BaseModel):
+    success: bool
+    "Whether the callback was successful or not."
+
+    reason: str
+    "Reason for failure."

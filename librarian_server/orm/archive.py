@@ -26,5 +26,5 @@ class Archive(db.Base):
     )
     "The file that this archive entry references."
 
-    archive_path = db.Column(db.String(256), nullable=False, unique=False)
+    archive_path = db.Column(db.String(256), nullable=True, unique=False)
     "The path to the archive on the store."

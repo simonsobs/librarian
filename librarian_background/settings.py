@@ -21,6 +21,7 @@ from librarian_background.rolling_deletion import RollingDeletion
 
 from .check_integrity import CheckIntegrity
 from .corruption_fixer import CorruptionFixer
+from .create_archive import CreateArchive
 from .create_clone import CreateLocalClone
 from .queues import CheckConsumedQueue, ConsumeQueue, TransferStatus
 from .recieve_clone import RecieveClone
@@ -273,6 +274,36 @@ class CorruptionFixerSettings(BackgroundTaskSettings):
         )
 
 
+class CreateArchiveSettings(BackgroundTaskSettings):
+    """
+    Settings for the create archive task.
+    """
+
+    librarian_name: str
+    "The name of the librarian to archive files from."
+    archive_name: str
+    "The name of the archive to create."
+    archivist_url: str
+    "Name of the URL to the archivist that will archive the files."
+    age_in_days: int
+    "Age in days of the files to archive."
+    filesize_per_run: int = 1024
+    "The total filesize of the files to archive in any one run."
+
+    @property
+    def task(self) -> CreateArchive:
+
+        return CreateArchive(
+            librarian_name=self.librarian_name,
+            archive_name=self.archive_name,
+            name=self.task_name,
+            archivist_url=self.archivist_url,
+            age_in_days=self.age_in_days,
+            filesize_per_run=self.filesize_per_run,
+            soft_timeout=self.soft_timeout,
+        )
+
+
 class BackgroundSettings(BaseSettings):
     """
     Background task settings, configurable.
@@ -307,6 +338,8 @@ class BackgroundSettings(BaseSettings):
     rolling_deletion: list[RollingDeletionSettings] = []
 
     corruption_fixer: list[CorruptionFixerSettings] = []
+
+    create_archive: list[CreateArchiveSettings] = []
 
     # Global settings:
 
