@@ -12,6 +12,7 @@ from hera_librarian.exceptions import LibrarianHTTPError
 
 from .. import database as db
 from ..encryption import decrypt_string, encrypt_string
+from ..settings import server_settings
 
 
 class Librarian(db.Base):
@@ -127,4 +128,5 @@ class Librarian(db.Base):
             port=self.port,
             user=decrpyted_authenticator.split(":")[0],
             password=decrpyted_authenticator.split(":")[1],
+            request_timeout_seconds=server_settings.librarian_request_timeout_seconds,
         )
