@@ -156,6 +156,8 @@ class LibrarianClient:
             port=client_info.port,
             user=client_info.user,
             password=client_info.password,
+            checksum_threads=client_info.checksum_threads,
+            request_timeout_seconds=client_info.request_timeout_seconds,
         )
 
     @property
@@ -242,7 +244,11 @@ class LibrarianClient:
                 auth=(self.user, self.password),
                 timeout=self.request_timeout_seconds,
             )
-        except (TimeoutError, requests.exceptions.ConnectionError):
+        except (
+            TimeoutError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ):
             raise LibrarianTimeoutError(url=self.resolve(endpoint))
 
         if str(r.status_code)[0] != "2":
@@ -568,7 +574,15 @@ class AdminClient(LibrarianClient):
     A client for the Librarian API with admin privileges.
     """
 
-    def __init__(self, host: str, port: int, user: str, password: str):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        checksum_threads: int = 1,
+        request_timeout_seconds: int | None = None,
+    ):
         """
         Create a new AdminClient.
 
@@ -584,7 +598,9 @@ class AdminClient(LibrarianClient):
             The password of the user.
         """
 
-        super().__init__(host, port, user, password)
+        super().__init__(
+            host, port, user, password, checksum_threads, request_timeout_seconds
+        )
 
     def __repr__(self):
         return f"Admin Client ({self.user}) for {self.host}:{self.port}"
