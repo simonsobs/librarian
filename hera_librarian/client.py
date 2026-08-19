@@ -1362,3 +1362,82 @@ class AdminClient(LibrarianClient):
                 raise e
 
         return response.transfers_enabled
+
+
+class ArchivistClient(LibrarianClient):
+    """
+    A client for the Archivist.
+    """
+
+    def __repr__(self):
+        return f"Archivist Client ({self.user}) for {self.host}:{self.port}"
+
+    @property
+    def hostname(self):
+        parsed = urlparse(url=self.host)
+
+        if parsed.port is not None:
+            raise LibrarianHTTPError(
+                url=self.host,
+                status_code=None,
+                reason="Host should not include port.",
+                suggested_remedy="Use the `port` parameter.",
+            )
+
+        parsed = parsed._replace(netloc=f"{parsed.netloc}:{self.port}")
+
+        return parsed.geturl()
+
+    def ping(self, require_login: bool = False) -> PingResponse:
+        """
+        Ping the archivist to see if it is alive.
+
+        Returns
+        -------
+        PingResponse
+            The response from the ping.
+        """
+
+        return PingResponse(
+            name="Archivist Client", description="Ping response from the archivist."
+        )
+
+    def upload(
+        self,
+        local_path: Path,
+        dest_path: Path,
+        deletion_policy: DeletionPolicy | str = DeletionPolicy.DISALLOWED,
+    ):
+        raise NotImplementedError("Upload is not implemented for the ArchivistClient.")
+
+    def _copy_file(
+        self,
+        transfer_managers: dict[str, "CoreTransferManager"],
+        local_path: Path,
+        remote_path: Path,
+    ) -> str:
+        raise NotImplementedError(
+            "Copying files is not implemented for the ArchivistClient."
+        )
+
+    def search_files(
+        self,
+        name: Optional[str] = None,
+        create_time_window: Optional[tuple[datetime, ...]] = None,
+        uploader: Optional[str] = None,
+        source: Optional[str] = None,
+        max_results: int = 64,
+    ) -> list[FileSearchResponse]:
+        raise NotImplementedError(
+            "File validation is not implemented for the ArchivistClient."
+        )
+
+    def change_password(self, current_password: str, new_password: str):
+        raise NotImplementedError(
+            "File validation is not implemented for the ArchivistClient."
+        )
+
+    def validate_file(self, file_name: str) -> list[FileValidationResponseItem]:
+        raise NotImplementedError(
+            "File validation is not implemented for the ArchivistClient."
+        )

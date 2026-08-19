@@ -10,9 +10,6 @@ class ArchiveManifestRequest(BaseModel):
     manifest_id: str
     "The ID of the manifest."
 
-    archive_name: str
-    "The name of the archive."
-
     archive_files: list[ManifestEntry]
     "The files on the archive."
 
@@ -26,9 +23,6 @@ class ArchiveManifestResponse(BaseModel):
 
 
 class ArchiveCallbackRequest(BaseModel):
-    archive_name: str
-    "The name of the archive to call back."
-
     manifest_id: str
     "The ID of the manifest."
 
