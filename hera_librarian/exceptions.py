@@ -33,3 +33,22 @@ class LibrarianClientRemovedFunctionality(Exception):
         super(LibrarianClientRemovedFunctionality, self).__init__(
             f"{name} is no longer avaialble in Librarian v2.0. {message}"
         )
+
+
+class LibrarianDownstreamUnavailableError(Exception):
+    """
+    Raised when a librarian could not contact one of its downstream librarians
+    while answering our request, so its answer would have been incomplete.
+
+    This is distinct from a librarian telling us that a file has no remote
+    copies: here, we simply do not know.
+    """
+
+    def __init__(self, url, reason, suggested_remedy=None):
+        super().__init__(
+            f"The librarian at {url} could not reach a downstream librarian, so "
+            f"its answer is incomplete. {reason}"
+        )
+        self.url = url
+        self.reason = reason
+        self.suggested_remedy = suggested_remedy

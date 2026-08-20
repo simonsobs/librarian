@@ -25,7 +25,12 @@ from hera_librarian.models.clone import (
 from .authlevel import AuthLevel
 from .deletion import DeletionPolicy
 from .errors import ErrorCategory, ErrorSeverity
-from .exceptions import LibrarianError, LibrarianHTTPError, LibrarianTimeoutError
+from .exceptions import (
+    LibrarianError,
+    LibrarianHTTPError,
+    LibrarianTimeoutError,
+    LibrarianDownstreamUnavailableError,
+)
 from .models.admin import (
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
@@ -560,11 +565,23 @@ class LibrarianClient:
             ``.computed_same_checksum`` among additional information.
         """
 
-        response = self.post(
-            endpoint="validate/file",
-            request=FileValidationRequest(file_name=file_name),
-            response=FileValidationResponse,
-        )
+        try:
+            response = self.post(
+                endpoint="validate/file",
+                request=FileValidationRequest(file_name=file_name),
+                response=FileValidationResponse,
+            )
+        except LibrarianHTTPError as e:
+            if e.status_code == 503:
+                # The librarian could not reach one of its downstreams. Its
+                # answer would be incomplete, and silently treating that as
+                # "no remote copies" is how data gets deleted that shouldn't be.
+                raise LibrarianDownstreamUnavailableError(
+                    url=self.hostname,
+                    reason=e.reason,
+                    suggested_remedy=e.suggested_remedy,
+                ) from e
+            raise
 
         return response.root
 
