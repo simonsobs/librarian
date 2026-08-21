@@ -20,7 +20,8 @@ from hera_librarian.models.archive import (
     ManifestEntry,
 )
 from librarian_server.database import get_session
-from librarian_server.orm import Archive, Archivist, File, FileToArchive, Instance
+from librarian_server.orm import Archive, Archivist, File, FileToArchives, Instance
+from librarian_server.settings import server_settings
 
 from .task import Task
 
@@ -30,16 +31,14 @@ class CreateArchive(Task):
     A background task that send archiving requests to archivist.
     """
 
-    librarian_name: str
-    "The name of the librarian to archive files from."
     archivist_name: str
     "The name of the archivist to archive files to."
     age_in_days: int
     "Age in days of the files to archive."
-    filesize_per_run: int = 1024
-    "The total filesize of the files to archive in any one run."
-    telescope: str | None = None
-    "The telescope to archive files from. If None, archive files from all telescopes."
+    filesize_per_run: int
+    "The total filesize, in bytes, of the files to archive in any one run."
+    match_query: str | None = None
+    "A SQL LIKE pattern matched against the file name."
 
     def create_manifest_request(
         self, files: list[tuple[File, Instance]], manifest_id: str
@@ -68,16 +67,23 @@ class CreateArchive(Task):
             )
 
         return ArchiveManifestRequest(
-            librarian_name=self.librarian_name,
+            librarian_name=server_settings.name,
             manifest_id=manifest_id,
             archive_files=manifest_files,
         )
 
     def get_files(self, session: Session) -> list[tuple[File, Instance]]:
         """
-        Get the files that are candidates for archiving: those older than
-        age_in_days that do not already have an entry in the archives table,
-        oldest first, up to a cumulative size of filesize_per_run bytes.
+        Get the files that are candidates for archiving.
+
+        They are older than age_in_days, have at least one available instance,
+        and have not archived yet. If `match_query` then only the files whose
+        name includes `match_query` are selected. The total of all files is not
+        more than `filesize_per_run` in bytes.
+
+        Returns
+        -------
+        list[tuple[File, Instance]]
         """
 
         chosen_instance = (
@@ -107,16 +113,14 @@ class CreateArchive(Task):
             .where(File.create_time <= cutoff)
             .where(File.size.is_not(None))
             .where(
-                ~select(FileToArchive.file_name)
-                .where(FileToArchive.file_name == File.name)
+                ~select(FileToArchives.file_name)
+                .where(FileToArchives.file_name == File.name)
                 .exists()
             )
         )
 
-        if self.telescope is not None:
-            candidates = candidates.where(
-                File.name.startswith(self.telescope, autoescape=True)
-            )
+        if self.match_query is not None:
+            candidates = candidates.where(File.name.like(self.match_query))
 
         candidates = candidates.subquery()
 
@@ -162,35 +166,50 @@ class CreateArchive(Task):
         )
         client = archivist.client()
 
+        # Create the DB entries for the files before sending the request. If
+        # the request fails because of a problem, we do not want these files to
+        # picked up again.
+        archive_entry = Archive(
+            manifest_id=manifest_id,
+            archive_id=None,
+            archive_path=None,
+        )
+        session.add(archive_entry)
+        for file in manifest_request.archive_files:
+            archive_entry.files.append(FileToArchives(file_name=file.name))
+
+        session.commit()
+
         try:
             manifest_response: ArchiveManifestResponse = client.post(
-                endpoint="/api/v1/archive",
+                endpoint="archive",
                 request=manifest_request,
                 response=ArchiveManifestResponse,
             )
         except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError) as e:
+            # Nothing was accepted, so release the claim and let the files be
+            # picked up again by a later run.
             logger.error(
-                f"Failed to send manifest to archivist {self.archivist_name}: {e}",
-                name=archivist.name,
-                e=e,
+                f"Failed to send manifest to archivist {self.archivist_name}: {e}"
             )
+            session.delete(archive_entry)
+            session.commit()
             return
+
+        archive_entry.archive_id = manifest_response.archive_id
+        session.commit()
 
         if manifest_response.manifest_id != manifest_id:
+            # The archivist has taken the files but disagrees about which request
+            # this was. Keep the claim so we do not send them again, and leave the
+            # entry to be reconciled by hand.
             logger.error(
-                f"Archiving request to {self.archivist_name} returned unexpected manifest ID: {manifest_response.manifest_id} (expected {manifest_id})"
+                f"Archiving request to {self.archivist_name} returned unexpected "
+                f"manifest ID: {manifest_response.manifest_id} (expected {manifest_id}). "
+                f"Archive {manifest_response.archive_id} recorded; reconcile manually."
             )
             return
 
-        archive_entry = Archive(
-            manifest_id=manifest_id,
-            archive_id=manifest_response.archive_id,
-            archive_path=None,
-        )
-        session.add(archive_entry)
-        logger.info(f"Manifest sent to {self.archivist_name } successfully.")
+        logger.info(f"Manifest sent to {self.archivist_name} successfully.")
         for file in manifest_request.archive_files:
             logger.info(f"Archived file: {file.name} ({file.size} bytes)")
-            archive_entry.files.append(FileToArchive(file_name=file.name))
-
-        session.commit()

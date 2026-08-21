@@ -23,6 +23,9 @@ class ArchiveManifestResponse(BaseModel):
 
 
 class ArchiveCallbackRequest(BaseModel):
+    archivist_name: str
+    "The name of the archivist making the callback."
+
     manifest_id: str
     "The ID of the manifest."
 

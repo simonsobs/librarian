@@ -2,7 +2,7 @@
 ORM for database storage.
 """
 
-from .archive import Archive, Archivist, FileToArchive
+from .archive import Archive, Archivist, FileToArchives
 from .completed_transfer import CompletedTransfer
 from .errors import Error
 from .file import CorruptFile, File

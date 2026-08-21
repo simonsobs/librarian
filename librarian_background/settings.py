@@ -279,28 +279,25 @@ class CreateArchiveSettings(BackgroundTaskSettings):
     Settings for the create archive task.
     """
 
-    librarian_name: str
-    "The name of the librarian to archive files from."
     archivist_name: str
     "The name of the archivist that will archive the files."
     age_in_days: int
     "Age in days of the files to archive."
-    filesize_per_run: int = 1024
-    "The total filesize of the files to archive in any one run."
-    telescope: str | None = None
-    "The telescope to archive files from. If None, archive files from all telescopes."
+    filesize_per_run: int
+    "The total filesize, in bytes, of the files to archive in any one run."
+    match_query: str | None = None
+    "A SQL LIKE pattern matched against the file name."
 
     @property
     def task(self) -> CreateArchive:
 
         return CreateArchive(
-            librarian_name=self.librarian_name,
             name=self.task_name,
             archivist_name=self.archivist_name,
             age_in_days=self.age_in_days,
             filesize_per_run=self.filesize_per_run,
             soft_timeout=self.soft_timeout,
-            telescope=self.telescope,
+            match_query=self.match_query,
         )
 
 

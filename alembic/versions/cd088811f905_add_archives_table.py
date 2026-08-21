@@ -30,7 +30,7 @@ def upgrade():
     )
 
     op.create_table(
-        "files_to_archive",
+        "files_to_archives",
         sa.Column("archive_id", sa.Integer(), nullable=False),
         sa.Column("file_name", sa.String(length=256), nullable=False),
         sa.ForeignKeyConstraint(
@@ -60,6 +60,6 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("files_to_archive")
+    op.drop_table("files_to_archives")
     op.drop_table("archives")
     op.drop_table("archivists")

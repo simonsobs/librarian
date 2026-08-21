@@ -1,4 +1,7 @@
+import secrets
 from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
 
 from hera_librarian import ArchivistClient
 from hera_librarian.exceptions import LibrarianHTTPError
@@ -9,9 +12,9 @@ from ..encryption import decrypt_string, encrypt_string
 
 class Archive(db.Base):
     """
-    An archive entry. Each manifest entry can contain multiple files, and each file
-    can be archived multiple times. This table keeps track which files are already
-    archived and what is their path.
+    An archive held by an archivist. One archive is created per manifest that we
+    send, and contains many files, linked through `files_to_archive`. The archive path is
+    filled in later, when the archivist calls back to to report it.
     """
 
     __tablename__ = "archives"
@@ -20,28 +23,30 @@ class Archive(db.Base):
     "The ID of the archive entry."
 
     manifest_id = db.Column(db.String(256), unique=True, nullable=False)
-    "The ID of the manifest this file was archived as part of."
+    "The ID of the manifest we sent to the archivist to create this archive."
 
     archive_id = db.Column(db.String(256), nullable=True, unique=False)
     "The ID of the archive in the archivist."
 
     archive_path = db.Column(db.String(256), nullable=True, unique=False)
-    "The path to the archive on the store."
+    "The path to the archive on the archivist's store. None until it calls back."
 
     files = db.relationship(
-        "FileToArchive",
+        "FileToArchives",
         back_populates="archive",
         cascade="all, delete-orphan",
     )
+    "The files that are part of this archive."
 
 
-class FileToArchive(db.Base):
+class FileToArchives(db.Base):
     """
-    A file that is to be archived. This table is used to keep track of files that
-    need to be archived, but have not yet been archived.
+    A link table between archives and the files they contain. Files are
+    only ever part of a single archive, and the archive they belong to is found
+    through the `archive` relationship.
     """
 
-    __tablename__ = "files_to_archive"
+    __tablename__ = "files_to_archives"
 
     archive_id = db.Column(
         db.Integer,
@@ -49,7 +54,7 @@ class FileToArchive(db.Base):
         primary_key=True,
         nullable=False,
     )
-    "The ID of the archive entry that this file is to be archived as part of."
+    "The ID of the archive entry that this file is archived as part of."
 
     file_name = db.Column(
         db.String(256),
@@ -57,25 +62,24 @@ class FileToArchive(db.Base):
         primary_key=True,
         nullable=False,
     )
-    "Name of the file that is to be archived."
+    "Name of the file that is archived."
 
     file = db.relationship(
         "File",
-        primaryjoin="FileToArchive.file_name == File.name",
+        primaryjoin="FileToArchives.file_name == File.name",
     )
+    "The file that this row references."
 
     archive = db.relationship(
         "Archive",
         back_populates="files",
     )
+    "The archive that this file is part of."
 
 
 class Archivist(db.Base):
     """
-    A librarian that we are connected to. This should be pinged every now and then
-    to confirm its availability. We will then ask for a response to see if that
-    librarian knows about US; they must be able to 'call us back' for
-    asynchronous transfers.
+    An archivist that we send archiving requests to and receive callbacks from.
     """
 
     __tablename__ = "archivists"
@@ -117,9 +121,7 @@ class Archivist(db.Base):
         port : int
             The port of this archivist.
         authenticator : str
-            The authenticator so we can connect this archivist. This is passed in
-            unencrypted and will be encrypted before being stored. The authenticator
-            is a username and password separated by a colon.
+            The authenticator so we can connect this archivist.
         check_connection : bool
             Whether to check the connection to this archivist before
             returning it (default: True, but turn this off for tests.)
@@ -160,6 +162,48 @@ class Archivist(db.Base):
 
         return archivist
 
+    @classmethod
+    def check_archivist(
+        cls, name: str, username: str, password: str, session: Session
+    ) -> "Archivist | None":
+        """
+        Check that an archivist exists and that the credentials it presented
+        are the ones we hold for it.
+
+        Parameters
+        ----------
+        name : str
+            The name of the archivist that claims to be calling.
+        username : str
+            The username presented by the caller.
+        password : str
+            The password presented by the caller.
+        session : Session
+            The database session to use.
+
+        Returns
+        -------
+        Archivist | None
+            The archivist, or None if it does not exist or the credentials
+            do not match.
+        """
+
+        archivist = session.query(cls).filter_by(name=name).one_or_none()
+
+        if archivist is None:
+            return None
+
+        stored_username, _, stored_password = decrypt_string(
+            archivist.authenticator
+        ).partition(":")
+
+        if secrets.compare_digest(
+            stored_username.encode(), username.encode()
+        ) and secrets.compare_digest(stored_password.encode(), password.encode()):
+            return archivist
+
+        return None
+
     def client(self) -> ArchivistClient:
         """
         Create a client for this archivist.
@@ -170,11 +214,11 @@ class Archivist(db.Base):
             The client.
         """
 
-        decrpyted_authenticator = decrypt_string(self.authenticator)
+        username, _, password = decrypt_string(self.authenticator).partition(":")
 
         return ArchivistClient(
             host=self.url,
             port=self.port,
-            user=decrpyted_authenticator.split(":")[0],
-            password=decrpyted_authenticator.split(":")[1],
+            user=username,
+            password=password,
         )
