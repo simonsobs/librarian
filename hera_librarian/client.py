@@ -79,7 +79,7 @@ from .models.validate import (
     FileValidationResponse,
     FileValidationResponseItem,
 )
-from .settings import ClientInfo
+from .settings import ClientInfo, DEFAULT_REQUEST_TIMEOUT_SECONDS
 from .utils import get_checksum_from_path, get_size_from_path
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ class LibrarianClient:
         user: str,
         password: str,
         checksum_threads: int = 1,
-        request_timeout_seconds: int | None = None,
+        request_timeout_seconds: int | None = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     ):
         """
         Create a new LibrarianClient.
@@ -598,7 +598,7 @@ class AdminClient(LibrarianClient):
         user: str,
         password: str,
         checksum_threads: int = 1,
-        request_timeout_seconds: int | None = None,
+        request_timeout_seconds: int | None = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     ):
         """
         Create a new AdminClient.

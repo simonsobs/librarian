@@ -16,6 +16,7 @@ from hera_librarian.exceptions import (
     LibrarianError,
     LibrarianHTTPError,
     LibrarianTimeoutError,
+    LibrarianDownstreamUnavailableError,
 )
 from hera_librarian.models.validate import (
     FileValidationFailedResponse,
@@ -111,6 +112,12 @@ def calculate_checksum_of_remote_copies(
         )
 
         return responses
+    except LibrarianDownstreamUnavailableError as e:
+        log.error(
+            f"Librarian {librarian.name} could not complete validation of "
+            f"{file_name}: {e.reason}"
+        )
+        raise DownstreamUnreachableError(librarian.name) from e
     except (LibrarianHTTPError, LibrarianError, LibrarianTimeoutError) as e:
         log.error(
             f"Failed to validate file {file_name} with librarian {librarian.name}"

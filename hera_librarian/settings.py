@@ -12,6 +12,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 if TYPE_CHECKING:
     client_settings: "ClientSettings"
 
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 1800
+"""Default timeout, in seconds, for HTTP requests to a librarian."""
+
 
 class ClientInfo(BaseModel):
     """
@@ -28,7 +31,7 @@ class ClientInfo(BaseModel):
     "Your password on this librarian"
     checksum_threads: int = 1
     "The number of threads to use for checksum computation. Default is 1."
-    request_timeout_seconds: int | None = 1800
+    request_timeout_seconds: int | None = DEFAULT_REQUEST_TIMEOUT_SECONDS
     "The timeout for requests in seconds. If None, no timeout is set."
 
 
