@@ -156,7 +156,7 @@ class ServerSettings(BaseSettings):
     # a specific destination.
     max_async_inflight_transfers: int = 64
 
-    # Timout, in seconds, for HTTP requests made to other librarians
+    # Timeout, in seconds, for HTTP requests made to other librarians
     librarian_request_timeout_seconds: Optional[int] = 1800
 
     # Log settings
