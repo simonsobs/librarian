@@ -25,7 +25,12 @@ from hera_librarian.models.clone import (
 from .authlevel import AuthLevel
 from .deletion import DeletionPolicy
 from .errors import ErrorCategory, ErrorSeverity
-from .exceptions import LibrarianError, LibrarianHTTPError, LibrarianTimeoutError
+from .exceptions import (
+    LibrarianError,
+    LibrarianHTTPError,
+    LibrarianTimeoutError,
+    LibrarianDownstreamUnavailableError,
+)
 from .models.admin import (
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
@@ -74,7 +79,7 @@ from .models.validate import (
     FileValidationResponse,
     FileValidationResponseItem,
 )
-from .settings import ClientInfo
+from .settings import ClientInfo, DEFAULT_REQUEST_TIMEOUT_SECONDS
 from .utils import get_checksum_from_path, get_size_from_path
 
 if TYPE_CHECKING:
@@ -93,7 +98,13 @@ class LibrarianClient:
     checksum_threads: int = 1
 
     def __init__(
-        self, host: str, port: int, user: str, password: str, checksum_threads: int = 1
+        self,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        checksum_threads: int = 1,
+        request_timeout_seconds: int | None = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     ):
         """
         Create a new LibrarianClient.
@@ -110,6 +121,9 @@ class LibrarianClient:
             The password of the user.
         checksum_threads : int
             The number of threads to use for checksum computation. Default is 1.
+        request_timeout_seconds : int | None = 1800
+            The timeout for requests in seconds. If None, no timeout is set, default
+            is 30 minutes.
         """
 
         if host[-1] == "/":
@@ -121,6 +135,7 @@ class LibrarianClient:
         self.user = user
         self.password = password
         self.checksum_threads = checksum_threads
+        self.request_timeout_seconds = request_timeout_seconds
 
     def __repr__(self):
         return f"Librarian Client ({self.user}) for {self.host}:{self.port}"
@@ -146,6 +161,8 @@ class LibrarianClient:
             port=client_info.port,
             user=client_info.user,
             password=client_info.password,
+            checksum_threads=client_info.checksum_threads,
+            request_timeout_seconds=client_info.request_timeout_seconds,
         )
 
     @property
@@ -230,8 +247,13 @@ class LibrarianClient:
                 data=data,
                 headers={"Content-Type": "application/json"},
                 auth=(self.user, self.password),
+                timeout=self.request_timeout_seconds,
             )
-        except (TimeoutError, requests.exceptions.ConnectionError):
+        except (
+            TimeoutError,
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ):
             raise LibrarianTimeoutError(url=self.resolve(endpoint))
 
         if str(r.status_code)[0] != "2":
@@ -543,11 +565,23 @@ class LibrarianClient:
             ``.computed_same_checksum`` among additional information.
         """
 
-        response = self.post(
-            endpoint="validate/file",
-            request=FileValidationRequest(file_name=file_name),
-            response=FileValidationResponse,
-        )
+        try:
+            response = self.post(
+                endpoint="validate/file",
+                request=FileValidationRequest(file_name=file_name),
+                response=FileValidationResponse,
+            )
+        except LibrarianHTTPError as e:
+            if e.status_code == 503:
+                # The librarian could not reach one of its downstreams. Its
+                # answer would be incomplete, and silently treating that as
+                # "no remote copies" is how data gets deleted that shouldn't be.
+                raise LibrarianDownstreamUnavailableError(
+                    url=self.hostname,
+                    reason=e.reason,
+                    suggested_remedy=e.suggested_remedy,
+                ) from e
+            raise
 
         return response.root
 
@@ -557,7 +591,15 @@ class AdminClient(LibrarianClient):
     A client for the Librarian API with admin privileges.
     """
 
-    def __init__(self, host: str, port: int, user: str, password: str):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        user: str,
+        password: str,
+        checksum_threads: int = 1,
+        request_timeout_seconds: int | None = DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    ):
         """
         Create a new AdminClient.
 
@@ -573,7 +615,9 @@ class AdminClient(LibrarianClient):
             The password of the user.
         """
 
-        super().__init__(host, port, user, password)
+        super().__init__(
+            host, port, user, password, checksum_threads, request_timeout_seconds
+        )
 
     def __repr__(self):
         return f"Admin Client ({self.user}) for {self.host}:{self.port}"

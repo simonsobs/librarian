@@ -14,7 +14,10 @@ from schedule import CancelJob
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from librarian_server.api.validate import calculate_checksum_of_remote_copies
+from librarian_server.api.validate import (
+    DownstreamUnreachableError,
+    calculate_checksum_of_remote_copies,
+)
 from librarian_server.database import get_session
 from librarian_server.orm import Instance, Librarian, StoreMetadata
 
@@ -137,9 +140,20 @@ class RollingDeletion(Task):
                 if not librarian:
                     continue
 
-                downstream += calculate_checksum_of_remote_copies(
-                    librarian=librarian, file_name=instance.file_name
-                )
+                try:
+                    downstream += calculate_checksum_of_remote_copies(
+                        librarian=librarian, file_name=instance.file_name
+                    )
+                except DownstreamUnreachableError as e:
+                    # Can't verify this one. Count nothing for it and carry on;
+                    # the copy-count check below will refuse to delete if that
+                    # leaves us short.
+                    logger.warning(
+                        "Could not reach librarian {} while checking {}, "
+                        "not counting it towards remote copies",
+                        e.librarian_name,
+                        instance.file_name,
+                    )
 
             # Now check if we have enough!
             if len(downstream) < self.number_of_remote_copies:

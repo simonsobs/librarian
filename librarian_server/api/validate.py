@@ -16,6 +16,7 @@ from hera_librarian.exceptions import (
     LibrarianError,
     LibrarianHTTPError,
     LibrarianTimeoutError,
+    LibrarianDownstreamUnavailableError,
 )
 from hera_librarian.models.validate import (
     FileValidationFailedResponse,
@@ -34,6 +35,19 @@ from ..settings import server_settings
 from .auth import ReadonlyUserDependency
 
 router = APIRouter(prefix="/api/v2/validate")
+
+
+class DownstreamUnreachableError(Exception):
+    """
+    Raised internally when a downstream librarian cannot be contacted while
+    servicing a validation request. The result we could return would be
+    incomplete, and indistinguishable from "that librarian holds no copies",
+    so we refuse to answer instead.
+    """
+
+    def __init__(self, librarian_name: str):
+        super().__init__(f"Unable to contact downstream librarian {librarian_name}.")
+        self.librarian_name = librarian_name
 
 
 def calculate_checksum_of_local_copy(
@@ -84,9 +98,9 @@ def calculate_checksum_of_remote_copies(
     try:
         client = librarian.client()
         client.ping()
-    except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError):
+    except (LibrarianError, LibrarianHTTPError, LibrarianTimeoutError) as e:
         log.error(f"Unable to contact downstream librarian {librarian.name}")
-        return []
+        raise DownstreamUnreachableError(librarian.name) from e
 
     try:
         responses = client.validate_file(file_name)
@@ -98,11 +112,17 @@ def calculate_checksum_of_remote_copies(
         )
 
         return responses
-    except (LibrarianHTTPError, LibrarianError, LibrarianTimeoutError):
+    except LibrarianDownstreamUnavailableError as e:
+        log.error(
+            f"Librarian {librarian.name} could not complete validation of "
+            f"{file_name}: {e.reason}"
+        )
+        raise DownstreamUnreachableError(librarian.name) from e
+    except (LibrarianHTTPError, LibrarianError, LibrarianTimeoutError) as e:
         log.error(
             f"Failed to validate file {file_name} with librarian {librarian.name}"
         )
-        return []
+        raise DownstreamUnreachableError(librarian.name) from e
 
 
 @router.post(
@@ -192,7 +212,33 @@ async def validate_file(
 
         coroutines.append(this_checksum_info)
 
-    checksum_info = await asyncio.gather(*coroutines)
+    # return_exceptions=True so that we wait for every branch to finish before
+    # returning. Letting an exception propagate out of gather() leaves the other
+    # coroutines running against a session that is about to be torn down.
+    results = await asyncio.gather(*coroutines, return_exceptions=True)
+
+    unreachable = [r for r in results if isinstance(r, DownstreamUnreachableError)]
+
+    if unreachable:
+        names = ", ".join(sorted({e.librarian_name for e in unreachable}))
+        log.error(f"Refusing to validate {request.file_name}: cannot reach {names}")
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return FileValidationFailedResponse(
+            reason=(
+                f"Unable to contact downstream librarian(s) {names}, so the set "
+                "of valid copies of this file cannot be determined."
+            ),
+            suggested_remedy=(
+                "Retry once the downstream librarian is reachable. Do not treat "
+                "this as the file having no remote copies."
+            ),
+        )
+
+    for result in results:
+        if isinstance(result, BaseException):
+            raise result
+
+    checksum_info = results
 
     # Flatten checksum_info
     checksum_info = [item for sublist in checksum_info for item in sublist]
