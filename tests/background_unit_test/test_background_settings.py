@@ -16,6 +16,16 @@ def test_background_settings_full(test_server):
                     "store_name": "test",
                 }
             ],
+            "create_archive": [
+                {
+                    "task_name": "archive",
+                    "every": "24:00:00",
+                    "archivist_name": "test_archivist",
+                    "age_in_days": 30,
+                    "filesize_per_run": 1099511627776,
+                    "match_query": "%.g3",
+                }
+            ],
             "create_local_clone": [
                 {
                     "task_name": "clone",

@@ -220,6 +220,44 @@ class AdminRemoveLibrarianResponse(BaseModel):
     "The number of transfers removed (marked as failed)."
 
 
+class AdminAddArchivistRequest(BaseModel):
+    archivist_name: str
+    "The name of the archivist to add."
+
+    url: str
+    "The URL of the archivist to add."
+
+    port: int
+    "The port of the archivist to add."
+
+    authenticator: str
+    "The authenticator for the archivist to add."
+
+    check_connection: bool = True
+    "Whether to check the connection to the archivist before adding it. It is strongly recommended that you do this."
+
+
+class AdminAddArchivistResponse(BaseModel):
+    success: bool
+    "Whether the archivist was added successfully."
+
+    already_exists: bool
+    "Whether the archivist already exists."
+
+    ping_success: bool | None
+    "Whether the ping to the archivist was successful."
+
+
+class AdminRemoveArchivistRequest(BaseModel):
+    archivist_name: str
+    "The name of the archivist to remove."
+
+
+class AdminRemoveArchivistResponse(BaseModel):
+    success: bool
+    "Whether it was removed sucessfully."
+
+
 class AdminDeleteInstanceRequest(BaseModel):
     """
     A request to delete a instance.

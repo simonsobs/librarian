@@ -42,6 +42,7 @@ def main() -> FastAPI:
 
     from .api import (
         admin_router,
+        archive_callback_router,
         checkin_router,
         clone_router,
         corrupt_router,
@@ -63,5 +64,6 @@ def main() -> FastAPI:
     app.include_router(checkin_router)
     app.include_router(validate_router)
     app.include_router(corrupt_router)
+    app.include_router(archive_callback_router)
 
     return app
