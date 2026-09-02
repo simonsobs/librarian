@@ -319,6 +319,8 @@ def test_manifest_generation_and_extra_opts(
 
     session.commit()
 
+    session.close()
+
 
 def test_add_librarians(test_client, test_server_with_valid_file, test_orm):
     """

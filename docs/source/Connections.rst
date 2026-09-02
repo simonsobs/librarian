@@ -123,14 +123,14 @@ itself is never pushed; the archivist reads the instances in place.
 A librarian is expected to have at most one archivist. There are two command-line
 tools:
 
-- ``librarian add-archivist $ARCHIVIST_NAME``, which registers an archivist.
-- ``librarian remove-archivist $ARCHIVIST_NAME``, which removes one.
+- ``librarian add-archivist $LIBRARIAN_NAME``, which registers an archivist.
+- ``librarian remove-archivist $LIBRARIAN_NAME``, which removes one.
 
 To register an archivist:
 
 .. code-block:: bash
 
-    librarian add-archivist $ARCHIVIST_NAME --name=archivist
+    librarian add-archivist $LIBRARIAN_NAME --name=archivist
                                             --url=$URL_OF_ARCHIVIST
                                             --port=$PORT_OF_ARCHIVIST
                                             --authenticator=$user:$password
