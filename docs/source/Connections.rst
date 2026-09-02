@@ -112,6 +112,55 @@ On the destination librarian, you will need to add the source librarian:
 
 Once these accounts are setup, you can begin the background transfers.
 
+Connecting an Archivist
+-----------------------
+
+An 'archivist' is a separate service that bundles files into archives for long-term storage, 
+driven by the ``create_archive`` background task. The librarian sends it a manifest describing a
+batch of files, and the archivist calls back when it has stored them. The file data
+itself is never pushed; the archivist reads the instances in place.
+
+A librarian is expected to have at most one archivist. There are two command-line
+tools:
+
+- ``librarian add-archivist $ARCHIVIST_NAME``, which registers an archivist.
+- ``librarian remove-archivist $ARCHIVIST_NAME``, which removes one.
+
+To register an archivist:
+
+.. code-block:: bash
+
+    librarian add-archivist $ARCHIVIST_NAME --name=archivist
+                                            --url=$URL_OF_ARCHIVIST
+                                            --port=$PORT_OF_ARCHIVIST
+                                            --authenticator=$user:$password
+
+The ``--name`` you give here is what the ``archivist_name`` field of the
+``create_archive`` background task must refer to. As with librarians, the authenticator
+is a username and password joined by a colon, and is encrypted in the database.
+
+There are two important differences from connecting a librarian:
+
+- **No user account is required.** Connecting two librarians needs an account in the
+  ``users`` table on each side. An archivist has no such account: the callback is
+  authenticated directly against the stored archivist authenticator, so registering the
+  archivist is the only step.
+- **The authenticator is symmetric.** The same ``user:password`` pair is presented by
+  the librarian when it submits a manifest, *and* verified when the archivist calls
+  back. This is deliberate — it means there is one credential to provision rather than
+  two to keep in sync — and it is the reverse of the librarian-to-librarian pattern
+  above, where each side holds a different secret.
+
+Pass ``--do-not-check-connection`` to skip the connectivity check on registration. Note
+that the archivist ping is currently a placeholder that does not contact the remote
+service, so the check cannot presently fail either way.
+
+Removing an archivist deletes only the archivist record. Archives it created, and the
+files marked as belonging to them, are deliberately left untouched — those files stay
+marked as archived on the assumption that another archivist takes over the same
+storage. Un-archiving files is destructive and is a manual operation.
+
+
 No ``hl_config.json``?
 -----------------------
 

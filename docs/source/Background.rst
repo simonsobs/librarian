@@ -144,6 +144,20 @@ The following background tasks are available:
 - ``corruption_fixer``: A task that reaches out to upstream librarians to ask for new copies of
   corrupt files in the table. These corrupt files can be found by the ``check_integrity`` task
   or when upstreams validate files during the deletion process.
+- ``create_archive``: A task that sends archiving requests to a dedicated archiving
+  service (an 'archivist'). Each run selects a batch of files and sends a single
+  manifest to the archivist. This task is configured with the following additional parameters:
+
+  * ``archivist_name``: The name of the archivist to send manifests to (string). This
+    must match the name the archivist was registered under.
+  * ``age_in_days``: The number of days back to check for files to archive (integer).
+    Only files created at least this long ago are considered.
+  * ``filesize_per_run``: The total size, in bytes, of the files to archive in any one
+    run (integer). Files are accumulated oldest-first until this budget is reached.
+  * ``match_query``: An optional SQL ``LIKE`` pattern matched against the file name
+    (string, default ``null`` meaning no filtering). For example, ``"%lat%"`` restricts
+    archiving LAT files. Note that ``%`` matches any sequence of characters and ``_``
+    matches any single character.
 
 
 Background Task Configuration Examples
@@ -276,3 +290,48 @@ deleted from the store.
       }
     ]
   }
+
+Archiving
+^^^^^^^^^
+
+The following configuration sends an archiving manifest once a day to an archivist
+registered as ``archivist``. Files must be at least 30 days old to be considered, and
+each run archives at most 1 TB of data.
+
+.. code-block:: json
+
+  {
+    "create_archive": [
+      {
+        "task_name": "Archive creator",
+        "soft_timeout": "00:30:00",
+        "every": "24:00:00",
+        "archivist_name": "archivist",
+        "age_in_days": 30,
+        "filesize_per_run": 1099511627776
+      }
+    ]
+  }
+
+To restrict archiving to a subset of files, add a ``match_query``. The following only
+archives files whose name ends in ``.g3``:
+
+.. code-block:: json
+
+  {
+    "create_archive": [
+      {
+        "task_name": "G3 archive creator",
+        "soft_timeout": "00:30:00",
+        "every": "24:00:00",
+        "archivist_name": "archivist",
+        "age_in_days": 30,
+        "filesize_per_run": 1099511627776,
+        "match_query": "%lat%"
+      }
+    ]
+  }
+
+Multiple ``create_archive`` tasks may be configured against the same archivist, for
+instance, to archive different file types on different schedules. Because files are
+claimed before a manifest is sent, two such tasks will not archive the same file twice.
