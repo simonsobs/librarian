@@ -5,6 +5,8 @@ Tests for admin endpoints.
 import shutil
 
 from hera_librarian.models.admin import (
+    AdminAddArchivistRequest,
+    AdminAddArchivistResponse,
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
     AdminChangeLibrarianTransferStatusRequest,
@@ -12,6 +14,8 @@ from hera_librarian.models.admin import (
     AdminCreateFileResponse,
     AdminListLibrariansRequest,
     AdminListLibrariansResponse,
+    AdminRemoveArchivistRequest,
+    AdminRemoveArchivistResponse,
     AdminRemoveLibrarianRequest,
     AdminRemoveLibrarianResponse,
     AdminRequestFailedResponse,
@@ -458,3 +462,95 @@ def test_add_librarians(test_client, test_server_with_valid_file, test_orm):
     response = AdminRequestFailedResponse.model_validate_json(response.content)
 
     assert response.reason == "Librarian our_closest_friend does not exist."
+
+
+def test_add_remove_archivist(test_client, test_server_with_valid_file, test_orm):
+    """
+    Tests that we can add and remove archivists, and that removing one leaves
+    the archives it made alone; un-archiving files is a manual operation.
+    """
+
+    test_server = test_server_with_valid_file
+
+    new_archivist = AdminAddArchivistRequest(
+        archivist_name="our_archivist",
+        url="http://localhost",
+        port=8080,
+        authenticator="archuser:secret",
+        # Pinging is tested in the integration test.
+        check_connection=False,
+    )
+
+    response = test_client.post_with_auth(
+        "/api/v2/admin/archivists/add", content=new_archivist.model_dump_json()
+    )
+
+    assert response.status_code == 200
+
+    response = AdminAddArchivistResponse.model_validate_json(response.content)
+
+    assert response.success
+    assert not response.already_exists
+
+    # Try to add it again.
+    response = test_client.post_with_auth(
+        "/api/v2/admin/archivists/add", content=new_archivist.model_dump_json()
+    )
+
+    assert response.status_code == 200
+
+    response = AdminAddArchivistResponse.model_validate_json(response.content)
+
+    assert not response.success
+    assert response.already_exists
+
+    # Give the archivist something to have archived.
+    with test_server[1]() as session:
+        archive = test_orm.Archive(
+            manifest_id="manifest-survives-removal",
+            archive_id="archive-survives-removal",
+            archive_path="/store/archive.tar",
+        )
+        archive.files.append(test_orm.FileToArchives(file_name="example_file.txt"))
+
+        session.add(archive)
+        session.commit()
+
+        archive_id = archive.id
+
+    remove_request = AdminRemoveArchivistRequest(archivist_name="our_archivist")
+
+    response = test_client.post_with_auth(
+        "/api/v2/admin/archivists/remove", content=remove_request.model_dump_json()
+    )
+
+    assert response.status_code == 200
+    assert AdminRemoveArchivistResponse.model_validate_json(response.content).success
+
+    with test_server[1]() as session:
+        assert (
+            session.query(test_orm.Archivist)
+            .filter_by(name="our_archivist")
+            .one_or_none()
+            is None
+        )
+
+        # The archive and its claims are deliberately untouched.
+        archive = session.get(test_orm.Archive, archive_id)
+
+        assert archive.archive_path == "/store/archive.tar"
+        assert [link.file_name for link in archive.files] == ["example_file.txt"]
+
+        session.delete(archive)
+        session.commit()
+
+    # Now try to remove our non-existent archivist.
+    response = test_client.post_with_auth(
+        "/api/v2/admin/archivists/remove", content=remove_request.model_dump_json()
+    )
+
+    assert response.status_code == 400
+
+    response = AdminRequestFailedResponse.model_validate_json(response.content)
+
+    assert response.reason == "Archivist our_archivist does not exist."
