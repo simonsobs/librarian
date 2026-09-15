@@ -83,6 +83,8 @@ def test_server(tmp_path_factory):
 
     yield app, get_session, setup
 
+    librarian_server.database.engine.dispose()
+
     for env_var in list(env_vars.keys()):
         if env_vars[env_var] is None:
             del os.environ[env_var]

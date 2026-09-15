@@ -32,6 +32,8 @@ from .exceptions import (
     LibrarianDownstreamUnavailableError,
 )
 from .models.admin import (
+    AdminAddArchivistRequest,
+    AdminAddArchivistResponse,
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
     AdminChangeLibrarianTransferStatusRequest,
@@ -42,6 +44,8 @@ from .models.admin import (
     AdminLibrarianTransferStatusResponse,
     AdminListLibrariansRequest,
     AdminListLibrariansResponse,
+    AdminRemoveArchivistRequest,
+    AdminRemoveArchivistResponse,
     AdminRemoveLibrarianRequest,
     AdminRemoveLibrarianResponse,
     AdminStoreListItem,
@@ -1369,6 +1373,101 @@ class AdminClient(LibrarianClient):
 
         return response.success, response.number_of_transfers_removed
 
+    def add_archivist(
+        self,
+        name: str,
+        url: str,
+        port: int,
+        authenticator: str,
+        check_connection: bool = True,
+    ) -> bool:
+        """
+        Add an archivist to this librarian.
+
+        Parameters
+        ----------
+        name : str
+            The name of the archivist to add.
+        url : str
+            The URL of the archivist to add.
+        port : int
+            The port of the archivist to add.
+        authenticator : str
+            The authenticator for the archivist to add.
+        check_connection : bool, optional
+            Whether to check the connection to this archivist before
+            returning it, by default True
+
+        Returns
+        -------
+        bool
+            Whether the archivist was successfully added.
+
+        Raises
+        ------
+        LibrarianError
+            If the archivist already exists on this librarian.
+        """
+
+        try:
+            response = self.post(
+                endpoint="admin/archivists/add",
+                request=AdminAddArchivistRequest(
+                    archivist_name=name,
+                    url=url,
+                    port=port,
+                    authenticator=authenticator,
+                    check_connection=check_connection,
+                ),
+                response=AdminAddArchivistResponse,
+            )
+        except LibrarianHTTPError as e:
+            if e.status_code == 400 and "Archivist" in e.reason:
+                raise LibrarianError(e.reason)
+            else:
+                raise e
+
+        return response.success
+
+    def remove_archivist(self, name: str) -> bool:
+        """
+        Remove an archivist from this librarian. Archives created by this
+        archivist are left alone.
+
+        Parameters
+        ----------
+        name : str
+            The name of the archivist to remove.
+
+        Returns
+        -------
+        bool
+            Whether the archivist was successfully removed.
+
+        Raises
+        ------
+        LibrarianError
+            If the archivist does not exist on this librarian.
+        """
+
+        try:
+            response = self.post(
+                endpoint="admin/archivists/remove",
+                request=AdminRemoveArchivistRequest(archivist_name=name),
+                response=AdminRemoveArchivistResponse,
+            )
+        except LibrarianHTTPError as e:
+            if (
+                e.status_code == 400
+                and "Archivist" in e.reason
+                and "does not exist" in e.reason
+            ):
+                raise LibrarianError(e.reason)
+            else:
+                raise e
+
+        return response.success
+
     def set_librarian_status(
         self,
         librarian_name: str,
@@ -1406,3 +1505,156 @@ class AdminClient(LibrarianClient):
                 raise e
 
         return response.transfers_enabled
+
+
+class ArchivistClient:
+    """
+    A client for the Archivist.
+    """
+
+    user: str
+    host: str
+    port: int
+    password: str
+
+    def __init__(self, host: str, port: int, user: str, password: str):
+        if host[-1] == "/":
+            self.host = host[:-1]
+        else:
+            self.host = host
+
+        self.port = port
+        self.user = user
+        self.password = password
+
+    def __repr__(self):
+        return f"Archivist Client ({self.user}) for {self.host}:{self.port}"
+
+    @property
+    def hostname(self):
+        parsed = urlparse(url=self.host)
+
+        if parsed.port is not None:
+            raise LibrarianHTTPError(
+                url=self.host,
+                status_code=None,
+                reason="Host should not include port.",
+                suggested_remedy="Use the `port` parameter.",
+            )
+
+        parsed = parsed._replace(
+            netloc=f"{parsed.netloc}:{self.port}", path=f"{parsed.path}/api/v1"
+        )
+
+        return parsed.geturl()
+
+    def resolve(self, path: str):
+        """
+        Resolve a path to a URL.
+
+        Parameters
+        ----------
+        path : str
+            The path to resolve.
+
+        Returns
+        -------
+        str
+            The resolved URL.
+        """
+
+        parsed = urlparse(url=self.hostname)
+
+        parsed = parsed._replace(path=f"{parsed.path}/{path}")
+
+        return parsed.geturl()
+
+    def post(
+        self,
+        endpoint: str,
+        request: Optional[BaseModel] = None,
+        response: Optional[BaseModel] = None,
+    ) -> Optional[BaseModel]:
+        """
+        Do a POST operation, passing a JSON version of the request and expecting a
+        JSON reply; return the decoded version of the latter.
+
+        Parameters
+        ----------
+        endpoint : str
+            The endpoint to post to.
+        request : pydantic.BaseModel, optional
+            The request model to send. If None, we don't ask for anything.
+        response : pydantic.BaseModel, optional
+            The response model to expect. If None, we don't return anything.
+
+        Returns
+        -------
+        response, optional
+            The decoded response model, or None.
+
+        Raises
+        ------
+
+        LibrarianHTTPError
+            If the HTTP request fails.
+
+        pydantic.ValidationError
+            If the archivist returns an invalid response.
+        """
+
+        data = None if request is None else request.model_dump_json()
+
+        try:
+            r = requests.post(
+                self.resolve(endpoint),
+                data=data,
+                headers={"Content-Type": "application/json"},
+                auth=(self.user, self.password),
+            )
+        except (TimeoutError, requests.exceptions.ConnectionError):
+            raise LibrarianTimeoutError(url=self.resolve(endpoint))
+
+        if r.status_code != 200:
+            try:
+                response_json = r.json()
+            except requests.exceptions.JSONDecodeError:
+                response_json = {}
+
+            # HTTPException
+            if "detail" in response_json:
+                try:
+                    response_json = json.loads(response_json["detail"])
+                except json.JSONDecodeError:
+                    response_json = {}
+
+            raise LibrarianHTTPError(
+                url=endpoint,
+                status_code=r.status_code,
+                reason=response_json.get("reason", "<no reason provided>"),
+                suggested_remedy=response_json.get(
+                    "suggested_remedy", "<no suggested remedy provided>"
+                ),
+                full_response=response_json,
+            )
+
+        if response is None:
+            return None
+        else:
+            # Note that the pydantic model wants the full bytes content
+            # not the deserialized r.json()
+            return response.model_validate_json(r.content)
+
+    def ping(self, require_login: bool = False) -> PingResponse:
+        """
+        Ping the archivist to see if it is alive.
+
+        Returns
+        -------
+        PingResponse
+            The response from the ping.
+        """
+
+        return PingResponse(
+            name="Archivist Client", description="Ping response from the archivist."
+        )

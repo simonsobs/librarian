@@ -83,6 +83,8 @@ def test_rolling_deletion_with_single_instance(
         session=session, commit=True, force=True
     )
 
+    session.close()
+
     return
 
 
@@ -132,6 +134,8 @@ def test_rolling_deletion_with_single_instance_unavailable(
     session.get(test_orm.File, FILE_NAME).delete(
         session=session, commit=True, force=True
     )
+
+    session.close()
 
     return
 
@@ -201,6 +205,8 @@ def test_rolling_deletion_with_multiple_files_age_out(
             session=session, commit=True, force=True
         )
 
+    session.close()
+
     return
 
 
@@ -267,5 +273,7 @@ def test_rolling_deletion_with_multiple_files_age_out_no_deletion_due_to_policy(
         session.get(test_orm.File, name).delete(
             session=session, commit=True, force=True
         )
+
+    session.close()
 
     return

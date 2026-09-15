@@ -6,6 +6,7 @@ these endpoints with pydantic models.
 """
 
 from .admin import router as admin_router
+from .archive_callback import router as archive_callback_router
 from .checkin import router as checkin_router
 from .clone import router as clone_router
 from .corrupt import router as corrupt_router

@@ -700,6 +700,56 @@ def remove_librarian(args):
     return res[0]
 
 
+def add_archivist(args):
+    """
+    Add an archivist in the database.
+    """
+
+    client = get_client(args.conn_name, admin=True)
+
+    try:
+        res = client.add_archivist(
+            name=args.name,
+            url=args.url,
+            port=args.port,
+            authenticator=args.authenticator,
+            check_connection=not args.do_not_check_connection,
+        )
+    except LibrarianError as e:
+        die(f"Error adding archivist: {e}")
+    except LibrarianHTTPError as e:
+        die(f"Unexpected error communicating with the librarian server: {e.reason}")
+
+    if res:
+        print(f"Archivist {args.name} added.")
+    else:
+        die(
+            f"Unable to add archivist {args.name}; it may already exist. Check the server logs."
+        )
+
+    return res
+
+
+def remove_archivist(args):
+    """
+    Remove an archivist.
+    """
+
+    client = get_client(args.conn_name, admin=True)
+
+    try:
+        res = client.remove_archivist(name=args.name)
+    except LibrarianError as e:
+        die(f"Error removing archivist: {e}")
+    except LibrarianHTTPError as e:
+        die(f"Unexpected error communicating with the librarian server: {e.reason}")
+
+    if res:
+        print(f"Archivist {args.name} removed.")
+
+    return res
+
+
 def create_user(args):
     """
     Create a new user on the librarian.
@@ -850,6 +900,8 @@ def generate_parser():
     config_get_librarian_list_subparser(sub_parsers)
     config_add_librarian_subparser(sub_parsers)
     config_remove_librarian_subparser(sub_parsers)
+    config_add_archivist_subparser(sub_parsers)
+    config_remove_archivist_subparser(sub_parsers)
     config_set_librarian_transfer_subparser(sub_parsers)
     config_create_user_subparser(sub_parsers)
     config_delete_user_subparser(sub_parsers)
@@ -1664,6 +1716,57 @@ def config_remove_librarian_subparser(sub_parsers):
         help="Remove all outgoing transfers to the librarian.",
     )
     sp.set_defaults(func=remove_librarian)
+
+
+def config_add_archivist_subparser(sub_parsers):
+    # function documentation
+    doc = """Add a new archivist to the librarian.
+
+    """
+    hlp = "Add a new archivist to the librarian"
+
+    # add sub parser
+    sp = sub_parsers.add_parser("add-archivist", description=doc, help=hlp)
+    sp.add_argument("conn_name", metavar="CONNECTION-NAME", help=_conn_name_help)
+    sp.add_argument(
+        "--name", help="The name of the archivist to add.", type=str, required=True
+    )
+    sp.add_argument(
+        "--url", help="The URL of the archivist to add.", type=str, required=True
+    )
+    sp.add_argument(
+        "--port", help="The port of the archivist to add.", type=int, required=True
+    )
+    sp.add_argument(
+        "--authenticator",
+        help="The authenticator of the archivist to add, as 'user:password'.",
+        type=str,
+        required=True,
+    )
+    sp.add_argument(
+        "--do-not-check-connection",
+        action="store_true",
+        help="Do not check the connection to the archivist on ingest.",
+    )
+    sp.set_defaults(func=add_archivist)
+
+
+def config_remove_archivist_subparser(sub_parsers):
+    # function documentation
+    doc = """Remove an archivist from the librarian.
+
+    Archives that this archivist created are left alone; those files stay
+    marked as archived.
+    """
+    hlp = "Remove an archivist from the librarian"
+
+    # add sub parser
+    sp = sub_parsers.add_parser("remove-archivist", description=doc, help=hlp)
+    sp.add_argument("conn_name", metavar="CONNECTION-NAME", help=_conn_name_help)
+    sp.add_argument(
+        "--name", help="The name of the archivist to remove.", type=str, required=True
+    )
+    sp.set_defaults(func=remove_archivist)
 
 
 def config_create_user_subparser(sub_parsers):

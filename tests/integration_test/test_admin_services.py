@@ -206,6 +206,25 @@ def test_add_search_remove_librarian(admin_client, librarian_client):
         response = admin_client.remove_librarian(name="test_server")
 
 
+def test_add_remove_archivist(admin_client):
+    response = admin_client.add_archivist(
+        name="test_archivist",
+        url="http://localhost",
+        port=8080,
+        authenticator="archuser:secret",
+        check_connection=False,
+    )
+
+    assert response is True
+
+    response = admin_client.remove_archivist(name="test_archivist")
+
+    assert response is True
+
+    with pytest.raises(LibrarianError):
+        admin_client.remove_archivist(name="test_archivist")
+
+
 def test_add_remove_user_cli(librarian_client_command_line):
     assert subprocess.call(
         [

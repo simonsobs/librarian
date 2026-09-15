@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from hera_librarian.deletion import DeletionPolicy
 from hera_librarian.exceptions import LibrarianHTTPError
 from hera_librarian.models.admin import (
+    AdminAddArchivistRequest,
+    AdminAddArchivistResponse,
     AdminAddLibrarianRequest,
     AdminAddLibrarianResponse,
     AdminChangeLibrarianTransferStatusRequest,
@@ -23,6 +25,8 @@ from hera_librarian.models.admin import (
     AdminLibrarianTransferStatusResponse,
     AdminListLibrariansRequest,
     AdminListLibrariansResponse,
+    AdminRemoveArchivistRequest,
+    AdminRemoveArchivistResponse,
     AdminRemoveLibrarianRequest,
     AdminRemoveLibrarianResponse,
     AdminRequestFailedResponse,
@@ -40,6 +44,7 @@ from hera_librarian.transfer import TransferStatus
 from ..database import yield_session
 from ..logger import log
 from ..orm import (
+    Archivist,
     File,
     Instance,
     Librarian,
@@ -502,6 +507,98 @@ def remove_librarian(
         success=True,
         number_of_transfers_removed=number_of_transfers_removed,
     )
+
+
+@router.post(
+    "/archivists/add",
+    response_model=AdminAddArchivistResponse | AdminRequestFailedResponse,
+)
+def add_archivist(
+    request: AdminAddArchivistRequest,
+    user: AdminUserDependency,
+    response: Response,
+    session: Session = Depends(yield_session),
+):
+    """
+    Adds a new archivist to the database. By default, it pings the archivist
+    to make sure that the connection works before accepting that connection.
+    """
+
+    log.debug(f"Recieved add archivist request from {user.username}.")
+
+    # Check if the archivist already exists.
+
+    existing_archivist = (
+        session.query(Archivist).filter_by(name=request.archivist_name).one_or_none()
+    )
+
+    if existing_archivist is not None:
+        return AdminAddArchivistResponse(
+            success=False,
+            already_exists=True,
+            ping_success=False,
+        )
+
+    try:
+        new_archivist = Archivist.new_archivist(
+            name=request.archivist_name,
+            url=request.url,
+            port=request.port,
+            authenticator=request.authenticator,
+            check_connection=request.check_connection,
+        )
+
+        session.add(new_archivist)
+        session.commit()
+
+        ping_success = True
+        success = True
+    except ValueError as e:
+        log.error(f"Failed to add archivist {request.archivist_name}.")
+        log.error(f"Error: {e}.")
+        ping_success = False
+        success = False
+
+    return AdminAddArchivistResponse(
+        success=success,
+        already_exists=False,
+        ping_success=ping_success if request.check_connection else None,
+    )
+
+
+@router.post(
+    "/archivists/remove",
+    response_model=AdminRemoveArchivistResponse | AdminRequestFailedResponse,
+)
+def remove_archivist(
+    request: AdminRemoveArchivistRequest,
+    user: AdminUserDependency,
+    response: Response,
+    session: Session = Depends(yield_session),
+):
+    """
+    Removes an archivist from the database.
+    """
+
+    log.debug(f"Recieved remove archivist request from {user.username}: {request}.")
+
+    # Check if the archivist exists.
+    archivist = (
+        session.query(Archivist).filter_by(name=request.archivist_name).one_or_none()
+    )
+
+    if archivist is None:
+        response.status_code = status.HTTP_400_BAD_REQUEST
+        return AdminRequestFailedResponse(
+            reason=f"Archivist {request.archivist_name} does not exist.",
+            suggested_remedy="You do not need to remove it.",
+        )
+
+    session.delete(archivist)
+
+    session.commit()
+
+    return AdminRemoveArchivistResponse(success=True)
 
 
 @router.post(path="/instance/delete_remote", response_model=AdminDeleteInstanceResponse)
