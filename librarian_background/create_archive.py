@@ -153,7 +153,8 @@ class CreateArchive(Task):
 
         if not files_to_archive:
             logger.info(
-                f"No files to archive to {self.archivist_name} older than {self.age_in_days} days."
+                f"No files to archive to {self.archivist_name} older than "
+                f"{self.age_in_days} days matching {self.match_query!r}."
             )
             return
 
