@@ -154,6 +154,8 @@ The following background tasks are available:
     Only files created at least this long ago are considered.
   * ``filesize_per_run``: The total size, in bytes, of the files to archive in any one
     run (integer). Files are accumulated oldest-first until this budget is reached.
+  * ``min_filesize_per_run``: The minimum size, in bytes, of the files to archive in any one
+    run (integer). Files are accumulated oldest-first until this budget is reached. Defaults to 0.
   * ``match_query``: An optional SQL ``LIKE`` pattern matched against the file name
     (string, default ``null`` meaning no filtering). For example, ``"%lat%"`` restricts
     archiving LAT files. Note that ``%`` matches any sequence of characters and ``_``
@@ -308,7 +310,8 @@ each run archives at most 1 TB of data.
         "every": "24:00:00",
         "archivist_name": "archivist",
         "age_in_days": 30,
-        "filesize_per_run": 1099511627776
+        "filesize_per_run": 1099511627776,
+        "min_filesize_per_run": 549755813888
       }
     ]
   }
