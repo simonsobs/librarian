@@ -287,6 +287,8 @@ class CreateArchiveSettings(BackgroundTaskSettings):
     "The total filesize, in bytes, of the files to archive in any one run."
     match_query: str | None = None
     "A SQL LIKE pattern matched against the file name."
+    min_filesize_per_run: int = 0
+    "The minimum filesize, in bytes, of the files to archive in any one run."
 
     @property
     def task(self) -> CreateArchive:
@@ -298,6 +300,7 @@ class CreateArchiveSettings(BackgroundTaskSettings):
             filesize_per_run=self.filesize_per_run,
             soft_timeout=self.soft_timeout,
             match_query=self.match_query,
+            min_filesize_per_run=self.min_filesize_per_run,
         )
 
 

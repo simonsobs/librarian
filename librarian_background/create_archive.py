@@ -37,6 +37,8 @@ class CreateArchive(Task):
     "Age in days of the files to archive."
     filesize_per_run: int
     "The total filesize, in bytes, of the files to archive in any one run."
+    min_filesize_per_run: int = 0
+    "The minimum filesize, in bytes, of the files to archive in any one run."
     match_query: str | None = None
     "A SQL LIKE pattern matched against the file name."
 
@@ -79,7 +81,8 @@ class CreateArchive(Task):
         They are older than age_in_days, have at least one available instance,
         and have not archived yet. If `match_query` then only the files whose
         name includes `match_query` are selected. The total of all files is not
-        more than `filesize_per_run` in bytes.
+        more than `filesize_per_run` in bytes, and nothing is selected at all
+        unless that total reaches `min_filesize_per_run`.
 
         Returns
         -------
@@ -132,7 +135,13 @@ class CreateArchive(Task):
             .order_by(candidates.c.running_size)
         )
 
-        return session.execute(query).all()
+        files = session.execute(query).all()
+
+        total_size = sum(file.size for file, _ in files)
+        if total_size < self.min_filesize_per_run:
+            return []
+
+        return files
 
     def on_call(self):
         with get_session() as session:

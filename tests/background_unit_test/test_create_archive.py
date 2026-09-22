@@ -106,6 +106,7 @@ def make_task(match_query=f"{PREFIX}%", **kwargs):
         archivist_name="test_archivist",
         age_in_days=5,
         filesize_per_run=1024 * 1024,
+        min_filesize_per_run=0,
         match_query=match_query,
     )
     settings.update(kwargs)
