@@ -6,6 +6,7 @@ import datetime
 import uuid
 
 from loguru import logger
+from pydantic import model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -41,6 +42,16 @@ class CreateArchive(Task):
     "The minimum filesize, in bytes, of the files to archive in any one run."
     match_query: str | None = None
     "A SQL LIKE pattern matched against the file name."
+
+
+    @model_validator(mode="after")
+    def check_filesize_bounds(self):
+        if self.filesize_per_run <= self.min_filesize_per_run:
+            raise ValueError(
+                f"Task not valid: Min filesize per run {self.min_filesize_per_run} must be smaller than filesize per run {self.filesize_per_run}"
+            )
+        return self
+
 
     def create_manifest_request(
         self, files: list[tuple[File, Instance]], manifest_id: str

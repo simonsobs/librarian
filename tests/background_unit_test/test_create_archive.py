@@ -148,6 +148,23 @@ def clean_archives(test_server, test_orm):
         session.commit()
 
 
+def test_wrong_filesize_per_run_config():
+    from pydantic import ValidationError
+
+    from librarian_background.create_archive import CreateArchive
+
+    settings = dict(
+        name="Archive creator",
+        soft_timeout="6:00:00",
+        archivist_name="test_archivist",
+        age_in_days=5,
+        filesize_per_run=1024,
+        min_filesize_per_run=1024
+    )
+
+    with pytest.raises(ValidationError):
+        CreateArchive(**settings)
+
 def test_get_files_selects_aged_available_files(
     test_client, test_server, test_orm, garbage_file, clean_archives
 ):
