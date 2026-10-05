@@ -159,11 +159,12 @@ def test_wrong_filesize_per_run_config():
         archivist_name="test_archivist",
         age_in_days=5,
         filesize_per_run=1024,
-        min_filesize_per_run=1024
+        min_filesize_per_run=1024,
     )
 
     with pytest.raises(ValidationError):
         CreateArchive(**settings)
+
 
 def test_get_files_selects_aged_available_files(
     test_client, test_server, test_orm, garbage_file, clean_archives
