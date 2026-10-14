@@ -6,6 +6,7 @@ import datetime
 import uuid
 
 from loguru import logger
+from pydantic import model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -37,8 +38,18 @@ class CreateArchive(Task):
     "Age in days of the files to archive."
     filesize_per_run: int
     "The total filesize, in bytes, of the files to archive in any one run."
+    min_filesize_per_run: int = 0
+    "The minimum filesize, in bytes, of the files to archive in any one run."
     match_query: str | None = None
     "A SQL LIKE pattern matched against the file name."
+
+    @model_validator(mode="after")
+    def check_filesize_bounds(self):
+        if self.filesize_per_run <= self.min_filesize_per_run:
+            raise ValueError(
+                f"Task not valid: Min filesize per run {self.min_filesize_per_run} must be smaller than filesize per run {self.filesize_per_run}"
+            )
+        return self
 
     def create_manifest_request(
         self, files: list[tuple[File, Instance]], manifest_id: str
@@ -79,7 +90,8 @@ class CreateArchive(Task):
         They are older than age_in_days, have at least one available instance,
         and have not archived yet. If `match_query` then only the files whose
         name includes `match_query` are selected. The total of all files is not
-        more than `filesize_per_run` in bytes.
+        more than `filesize_per_run` in bytes, and nothing is selected at all
+        unless that total reaches `min_filesize_per_run`.
 
         Returns
         -------
@@ -132,7 +144,13 @@ class CreateArchive(Task):
             .order_by(candidates.c.running_size)
         )
 
-        return session.execute(query).all()
+        files = session.execute(query).all()
+
+        total_size = sum(file.size for file, _ in files)
+        if total_size < self.min_filesize_per_run:
+            return []
+
+        return files
 
     def on_call(self):
         with get_session() as session:
@@ -154,7 +172,8 @@ class CreateArchive(Task):
         if not files_to_archive:
             logger.info(
                 f"No files to archive to {self.archivist_name} older than "
-                f"{self.age_in_days} days matching {self.match_query!r}."
+                f"{self.age_in_days} days and more than {self.min_filesize_per_run}B "
+                f" matching query: {self.match_query!r}."
             )
             return
 

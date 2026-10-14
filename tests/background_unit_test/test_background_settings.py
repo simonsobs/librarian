@@ -23,6 +23,7 @@ def test_background_settings_full(test_server):
                     "archivist_name": "test_archivist",
                     "age_in_days": 30,
                     "filesize_per_run": 1099511627776,
+                    "min_filesize_per_run": 109951162777,
                     "match_query": "%.g3",
                 }
             ],
