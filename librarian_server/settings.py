@@ -156,6 +156,12 @@ class ServerSettings(BaseSettings):
     # a specific destination.
     max_async_inflight_transfers: int = 64
 
+    # Upper bound on outstanding outgoing transfers across all destinations.
+    # Once reaching this many transfers, now new transfers are created until the number
+    # falls to max_outgoing_transfer_resume.
+    max_outgoing_transfers: int = 8192
+    resume_outgoing_transfers_below: int = 2048
+
     # Timeout, in seconds, for HTTP requests made to other librarians
     librarian_request_timeout_seconds: Optional[int] = 1800
 

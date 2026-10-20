@@ -6,7 +6,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from schedule import CancelJob
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 
 from hera_librarian.client import LibrarianClient
 from hera_librarian.exceptions import (
@@ -555,6 +555,8 @@ class SendClone(Task):
     "Timer to warn about disabled transfers."
     _skip_timer: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     "Holds the last time we warned about disabled transfers. This is an interal variable."
+    _paused: bool = False
+    "Whether transfer creation is passed because the global cap was reached. This is an internal variable."
 
     def on_call(self):  # pragma: no cover
         with get_session() as session:
@@ -588,6 +590,46 @@ class SendClone(Task):
                 f"Transfers to librarian {librarian.name} are temporarily disabled, skipping."
             )
             return
+
+        outstanding = session.execute(
+            select(func.count(OutgoingTransfer.id)).where(
+                OutgoingTransfer.status.in_(
+                    [
+                        TransferStatus.INITIATED,
+                        TransferStatus.ONGOING,
+                        TransferStatus.STAGED,
+                    ]
+                )
+            )
+        ).scalar()
+
+        if self._paused:
+            if outstanding > server_settings.resume_outgoing_transfers_below:
+                logger.debug(
+                    "Outgoing transfer creation is paused: {n} outstanding, "
+                    "waiting for it to fall to {resume}",
+                    n=outstanding,
+                    resume=server_settings.resume_outgoing_transfers_below,
+                )
+                return
+
+            self._paused = False
+            logger.info(
+                "Outstanding outgoing transfers have fallen to {n}; resuming "
+                "transfer creation",
+                n=outstanding,
+            )
+        else:
+            if outstanding >= server_settings.max_outgoing_transfers:
+                self._paused = True
+                logger.info(
+                    "Reached the maximum of {max} outstanding outgoing transfers "
+                    "({n} currently); not creating more until it falls to {resume}",
+                    max=server_settings.max_outgoing_transfers,
+                    n=outstanding,
+                    resume=server_settings.resume_outgoing_transfers_below,
+                )
+                return
 
         client: "LibrarianClient" = librarian.client()
 
@@ -658,12 +700,22 @@ class SendClone(Task):
         )
         query_end = time.perf_counter()
 
-        logger.info(
-            "Found {n} files without remote instances, "
-            "and without ongoing transfers in {t} seconds; preparing to send clones",
-            n=len(files_without_remote_instances),
-            t=query_end - query_start,
-        )
+        eligible = len(files_without_remote_instances)
+        budget = max(0, server_settings.max_outgoing_transfers - outstanding)
+
+        if eligible > budget:
+            files_without_remote_instances = files_without_remote_instances[:budget]
+            self._paused = True
+            logger.info(
+                "{eligible} files are eligible but only {budget} more transfers "
+                "are allowed ({outstanding} of {max} outstanding); creating "
+                "{budget} now and pausing until the count falls to {resume}",
+                eligible=eligible,
+                budget=budget,
+                outstanding=outstanding,
+                max=server_settings.max_outgoing_transfers,
+                resume=server_settings.resume_outgoing_transfers_below,
+            )
 
         if self.store_preference is not None:
             use_store: StoreMetadata = (
