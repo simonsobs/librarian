@@ -126,6 +126,12 @@ class SendCloneSettings(BackgroundTaskSettings):
     warn_disabled_timer: Optional[int]
     "The number of days to wait before warning about a disabled store."
 
+    max_outgoing_transfers: int = 8192
+    "Maximum outstanding outgoing transfers before this task stops creating more."
+
+    resume_outgoing_transfers_below: int = 2048
+    "Transfer creation resumes once the outstanding count falls to this."
+
     @property
     def task(self) -> SendClone:
         return SendClone(
@@ -135,6 +141,8 @@ class SendCloneSettings(BackgroundTaskSettings):
             store_preference=self.store_preference,
             send_batch_size=self.send_batch_size,
             warn_disabled_timer=self.warn_disabled_timer,
+            max_outgoing_transfers=self.max_outgoing_transfers,
+            resume_outgoing_transfers_below=self.resume_outgoing_transfers_below,
         )
 
 

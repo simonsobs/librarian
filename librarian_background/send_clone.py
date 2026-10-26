@@ -553,10 +553,12 @@ class SendClone(Task):
     "Number of files to send in a single batch."
     warn_disabled_timer: int = 1
     "Timer to warn about disabled transfers."
+    max_outgoing_transfers: int = 8192
+    "Maximum number of outstanding outgoing transfers, counted across all destinations, before this task stops creating more."
+    resume_outgoing_transfers_below: int = 2048
+    "Transfer creation only resumes once the outstanding count has fallen to this."
     _skip_timer: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     "Holds the last time we warned about disabled transfers. This is an interal variable."
-    _paused: bool = False
-    "Whether transfer creation is passed because the global cap was reached. This is an internal variable."
 
     def on_call(self):  # pragma: no cover
         with get_session() as session:
@@ -603,33 +605,16 @@ class SendClone(Task):
             )
         ).scalar()
 
-        if self._paused:
-            if outstanding > server_settings.resume_outgoing_transfers_below:
-                logger.debug(
-                    "Outgoing transfer creation is paused: {n} outstanding, "
-                    "waiting for it to fall to {resume}",
-                    n=outstanding,
-                    resume=server_settings.resume_outgoing_transfers_below,
-                )
-                return
-
-            self._paused = False
-            logger.info(
-                "Outstanding outgoing transfers have fallen to {n}; resuming "
-                "transfer creation",
+        if outstanding > self.resume_outgoing_transfers_below:
+            logger.debug(
+                "{n} outgoing transfers are outstanding; not creating more until "
+                "that falls to {resume}",
                 n=outstanding,
+                resume=self.resume_outgoing_transfers_below,
             )
-        else:
-            if outstanding >= server_settings.max_outgoing_transfers:
-                self._paused = True
-                logger.info(
-                    "Reached the maximum of {max} outstanding outgoing transfers "
-                    "({n} currently); not creating more until it falls to {resume}",
-                    max=server_settings.max_outgoing_transfers,
-                    n=outstanding,
-                    resume=server_settings.resume_outgoing_transfers_below,
-                )
-                return
+            return
+
+        budget = max(0, self.max_outgoing_transfers - outstanding)
 
         client: "LibrarianClient" = librarian.client()
 
@@ -693,6 +678,7 @@ class SendClone(Task):
                 OutgoingTransfer.file_name
                 == None,  # Ok, only grab files that don't have an outgoing transfer.
             )
+            .limit(budget)
         )
 
         files_without_remote_instances: list[File] = (
@@ -700,22 +686,12 @@ class SendClone(Task):
         )
         query_end = time.perf_counter()
 
-        eligible = len(files_without_remote_instances)
-        budget = max(0, server_settings.max_outgoing_transfers - outstanding)
-
-        if eligible > budget:
-            files_without_remote_instances = files_without_remote_instances[:budget]
-            self._paused = True
-            logger.info(
-                "{eligible} files are eligible but only {budget} more transfers "
-                "are allowed ({outstanding} of {max} outstanding); creating "
-                "{budget} now and pausing until the count falls to {resume}",
-                eligible=eligible,
-                budget=budget,
-                outstanding=outstanding,
-                max=server_settings.max_outgoing_transfers,
-                resume=server_settings.resume_outgoing_transfers_below,
-            )
+        logger.info(
+            "Found {n} files without remote instances, "
+            "and without ongoing transfers in {t} seconds; preparing to send clones",
+            n=len(files_without_remote_instances),
+            t=query_end - query_start,
+        )
 
         if self.store_preference is not None:
             use_store: StoreMetadata = (
