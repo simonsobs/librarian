@@ -6,7 +6,7 @@ import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
 from schedule import CancelJob
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 
 from hera_librarian.client import LibrarianClient
 from hera_librarian.exceptions import (
@@ -553,6 +553,10 @@ class SendClone(Task):
     "Number of files to send in a single batch."
     warn_disabled_timer: int = 1
     "Timer to warn about disabled transfers."
+    max_outgoing_transfers: int = 8192
+    "Maximum number of outstanding outgoing transfers, counted across all destinations, before this task stops creating more."
+    resume_outgoing_transfers_below: int = 2048
+    "Transfer creation only resumes once the outstanding count has fallen to this."
     _skip_timer: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)
     "Holds the last time we warned about disabled transfers. This is an interal variable."
 
@@ -588,6 +592,29 @@ class SendClone(Task):
                 f"Transfers to librarian {librarian.name} are temporarily disabled, skipping."
             )
             return
+
+        outstanding = session.execute(
+            select(func.count(OutgoingTransfer.id)).where(
+                OutgoingTransfer.status.in_(
+                    [
+                        TransferStatus.INITIATED,
+                        TransferStatus.ONGOING,
+                        TransferStatus.STAGED,
+                    ]
+                )
+            )
+        ).scalar()
+
+        if outstanding > self.resume_outgoing_transfers_below:
+            logger.debug(
+                "{n} outgoing transfers are outstanding; not creating more until "
+                "that falls to {resume}",
+                n=outstanding,
+                resume=self.resume_outgoing_transfers_below,
+            )
+            return
+
+        budget = max(0, self.max_outgoing_transfers - outstanding)
 
         client: "LibrarianClient" = librarian.client()
 
@@ -651,6 +678,7 @@ class SendClone(Task):
                 OutgoingTransfer.file_name
                 == None,  # Ok, only grab files that don't have an outgoing transfer.
             )
+            .limit(budget)
         )
 
         files_without_remote_instances: list[File] = (
